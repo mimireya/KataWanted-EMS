@@ -87,49 +87,46 @@
             const response = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime());
             const csvText = await response.text();
             
-            const rows = csvText.split(/\r?\n/).map(row => {
-                // カンマで正確に分解するための正規表現（罪状の中にカンマがあっても壊れない対策）
-                return row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*\$)/g) || row.split(',');
-            });
-            
+            // 最もシンプルで壊れない単純なカンマ区切りに修正
+            const rows = csvText.split(/\r?\n/).map(row => row.split(','));
             const grid = document.getElementById('wanted-grid');
             const loading = document.getElementById('loading');
             
-            grid.innerHTML = ''; 
-            loading.style.display = 'none';
-
             let hasItems = false;
-            
+            let cardHTML = ''; // 描画を1回にまとめてチカチカ（画面のちらつき）を完全に防止
+
             for (let i = 1; i < rows.length; i++) {
                 const columns = rows[i];
-                
-                // 列データが足りない場合は飛ばす
                 if (!columns || columns.length < 3) continue;
 
-                // スプレッドシートの空欄や改行だけの行を弾く
+                // 空白行を徹底排除
                 const checkText = columns.join('').replace(/"/g, '').trim();
                 if (checkText === "") continue;
 
                 hasItems = true;
                 
-                // 【あなたの列の並び順（A=期限、B=名前、C=罪状）に完全に合わせました】
-                const timeData = columns[0] ? columns[0].replace(/"/g, '') : '未設定';    // 1列目(A)：期限
-                const nameData = columns[1] ? columns[1].replace(/"/g, '') : '不明';      // 2列目(B)：名前
-                const chargesData = columns[2] ? columns[2].replace(/"/g, '').replace(/;/g, '\n') : 'なし'; // 3列目(C)：罪状
+                // 列から余計なダブルクォーテーション（"）を綺麗に消し去る
+                const timeData = columns[0].replace(/"/g, '').trim();    // A列：期限
+                const nameData = columns[1].replace(/"/g, '').trim();    // B列：名前
+                const chargesData = columns[2].replace(/"/g, '').trim(); // C列：罪状
 
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <div class="name">${nameData}</div>
-                    <div class="info-label">⏱️ 手配期限</div>
-                    <div class="time">${timeData} まで</div>
-                    <div class="info-label">⚖️ 罪状</div>
-                    <div class="charges">${chargesData}</div>
+                // HTML文字列を後ろにどんどん追加していく
+                cardHTML += `
+                    <div class="card">
+                        <div class="name">${nameData}</div>
+                        <div class="info-label">⏱️ 手配期限</div>
+                        <div class="time">${timeData} まで</div>
+                        <div class="info-label">⚖️ 罪状</div>
+                        <div class="charges">${chargesData}</div>
+                    </div>
                 `;
-                grid.appendChild(card);
             }
 
-            if (!hasItems) {
+            loading.style.display = 'none';
+
+            if (hasItems) {
+                grid.innerHTML = cardHTML; // ここで一気に画面を書き換える（ついたり消えたりしなくなります）
+            } else {
                 grid.innerHTML = '<div style="text-align:center; width:100%; color:#64748b; margin-top:20px;">現在、指名手配犯はいません。</div>';
             }
 
@@ -139,8 +136,11 @@
         }
     }
 
+    // 最初に実行
     fetchWantedList();
-    setInterval(fetchWantedList, 15000); // 15秒ごとに完全自動で画面更新
+    // 5分ごとに自動更新（300000ミリ秒）
+    setInterval(fetchWantedList, 300000);
+
 </script>
 
 </body>
