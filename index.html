@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KataCity 指名手配犯リスト</title>
+    <title>KataCity指名手配犯リスト</title>
     <style>
         body {
             background-color: #0f172a;
@@ -41,12 +41,12 @@
             font-size: 1.3rem;
             font-weight: bold;
             color: #f8fafc;
-            margin-bottom: 15px;
+            margin-top: 5px;
             background-color: #0f172a;
             padding: 12px;
             border-radius: 6px;
             border-left: 4px solid #ef4444;
-            white-space: pre-wrap; /* 改行をそのまま綺麗に出す設定 */
+            white-space: pre-wrap;
             line-height: 1.6;
         }
         .info-label {
@@ -55,6 +55,11 @@
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 1px;
+            margin-top: 15px;
+        }
+        /* 一番上のラベルだけ上の余白を消す */
+        .card > .info-label:first-child {
+            margin-top: 0;
         }
         .time {
             font-size: 1.15rem;
@@ -81,7 +86,6 @@
     // ★★★ あなたのCSV URLをここに貼り付けてください ★★★
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQWKeE9aWSvmkzhJukH5F4qOKbjnnq7EMhwjXeFygS7YhY5h6OwIMGP0X71nvUm7nhE5MVMDxel7g4M/pub?gid=1408368286&single=true&output=csv'; 
 
-    // セル内の改行に対応した、特殊なCSV解析関数
     function parseCSV(text) {
         let lines = [];
         let row = [""];
@@ -104,7 +108,7 @@
                 row[row.length - 1] += col;
             }
         }
-        if (row.length > 1 || row[0] !== "") {
+        if (row.length > 1 || row !== "") {
             lines.push(row);
         }
         return lines;
@@ -115,7 +119,6 @@
             const response = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime());
             const csvText = await response.text();
             
-            // 特殊な解析関数を使ってデータを正しく分解
             const rows = parseCSV(csvText);
             const grid = document.getElementById('wanted-grid');
             const loading = document.getElementById('loading');
@@ -123,27 +126,25 @@
             let hasItems = false;
             let cardHTML = ''; 
 
-            // 1行目は見出しなので無視、2行目から処理
             for (let i = 1; i < rows.length; i++) {
                 const columns = rows[i];
                 if (!columns || columns.length < 2) continue;
 
-                // 空白行を排除
                 const checkText = columns.join('').trim();
                 if (checkText === "") continue;
 
                 hasItems = true;
                 
-                // 【A=期限、B=名前】
                 const timeData = columns[0] ? columns[0].trim() : '未設定'; 
                 const nameData = columns[1] ? columns[1].trim() : '不明';
 
+                // 【手配期限が上、名前が下になるように並び順を逆にしました】
                 cardHTML += `
                     <div class="card">
-                        <div class="info-label">👤 指名手配犯</div>
-                        <div class="name">${nameData}</div>
                         <div class="info-label">⏱️ 手配期限</div>
                         <div class="time">${timeData} まで</div>
+                        <div class="info-label">👤 指名手配犯</div>
+                        <div class="name">${nameData}</div>
                     </div>
                 `;
             }
