@@ -46,7 +46,7 @@
             padding: 12px;
             border-radius: 6px;
             border-left: 4px solid #ef4444;
-            white-space: pre-wrap; /* 改行をそのまま表示する設定 */
+            white-space: pre-wrap;
             line-height: 1.6;
         }
         .info-label {
@@ -57,7 +57,6 @@
             letter-spacing: 1px;
             margin-top: 15px;
         }
-        /* 一番上のラベルだけ上の余白を消す */
         .card > .info-label:first-child {
             margin-top: 0;
         }
@@ -83,8 +82,8 @@
 </div>
 
 <script>
-    // ★★★ 即時反映されるエクスポートURLに書き換え済みです ★★★
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQWKeE9aWSvmkzhJukH5F4qOKbjnnq7EMhwjXeFygS7YhY5h6OwIMGP0X71nvUm7nhE5MVMDxel7g4M/pub?gid=1408368286&single=true&output=csv'; 
+    // あなたの「フォームの回答」シートのCSV URLをセットしました！
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQWKeE9aWSvmkzhJukH5F4qOKbjnnq7EMhwjXeFygS7YhY5h6OwIMGP0X71nvUm7nhE5MVMDxel7g4M/pub?gid=1501548881&single=true&output=csv'; 
 
     function parseCSV(text) {
         let lines = [];
@@ -116,6 +115,7 @@
 
     async function fetchWantedList() {
         try {
+            // nocacheを付けてGoogle側の5分キャッシュを強制突破します
             const response = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime());
             const csvText = await response.text();
             
@@ -123,39 +123,63 @@
             const grid = document.getElementById('wanted-grid');
             const loading = document.getElementById('loading');
             
-            let hasItems = false;
-            let cardHTML = ''; 
+            let validItems = []; 
+            const now = new Date(); // ホームページを開いた「本当の今の日時」
 
+            // 1行目はヘッダー（タイムスタンプ等）なので i=1 からスタート
             for (let i = 1; i < rows.length; i++) {
                 const columns = rows[i];
-                if (!columns || columns.length < 2) continue;
+                // 列が足りないデータはスキップ
+                if (!columns || columns.length < 6) continue;
 
-                // A列（期限）とB列（名前）のデータを取得
-                const timeData = columns[0] ? columns[0].trim() : ''; 
-                const nameData = columns[1] ? columns[1].trim() : '';
+                // スプシの列位置（B列=1, C列=2, D列=3, E列=4, F列=5）
+                const timeStr = columns[1] ? columns[1].trim() : '';      // B列: 期限(09/25 05:04など)
+                const nameData = columns[2] ? columns[2].trim() : '';     // C列: 名前
+                const status = columns[4] ? columns[4].trim() : '';       // E列: ステータス(逮捕済など)
+                const realTimeStr = columns[5] ? columns[5].trim() : '';  // F列: 判定用日時(2026/09/25 05:04:00)
 
-                // もし期限も名前も両方空っぽだったら、その行はスキップ（表示しない）
-                if (timeData === "" && nameData === "") continue;
-
-                hasItems = true;
+                // 【自動判定1】「逮捕済」なら絶対に表示しない
+                if (status === "逮捕済") continue;
                 
-                // データの最終調整（空欄の場合の文字を設定）
-                const displayTime = timeData ? timeData : '未設定';
-                const displayName = nameData ? nameData : '不明';
+                // 【自動判定2】名前が空っぽなら表示しない
+                if (!nameData) continue;
 
+                // 【自動判定3】期限切れチェック（F列の日時データを使用）
+                if (realTimeStr) {
+                    const expireDate = new Date(realTimeStr);
+                    // 期限が「今の時間」より古ければ、自動でスキップ（非表示）
+                    if (!isNaN(expireDate) && expireDate < now) {
+                        continue; 
+                    }
+                }
+
+                // すべての条件をクリアしたデータだけを一時保存
+                validItems.push({
+                    time: timeStr ? timeStr : '未設定',
+                    name: nameData,
+                    expireTime: realTimeStr ? new Date(realTimeStr).getTime() : 0
+                });
+            }
+
+            // 【自動並び替え】手配期限が近い順（昇順）に並び替えます
+            validItems.sort((a, b) => a.expireTime - b.expireTime);
+
+            // 画面に表示するHTMLを組み立て
+            let cardHTML = '';
+            for (const item of validItems) {
                 cardHTML += `
                     <div class="card">
                         <div class="info-label">⏱️ 手配期限</div>
-                        <div class="time">${displayTime} まで</div>
+                        <div class="time">${item.time} まで</div>
                         <div class="info-label">👤 指名手配犯</div>
-                        <div class="name">${displayName}</div>
+                        <div class="name">${item.name}</div>
                     </div>
                 `;
             }
 
             loading.style.display = 'none';
 
-            if (hasItems) {
+            if (validItems.length > 0) {
                 grid.innerHTML = cardHTML; 
             } else {
                 grid.innerHTML = '<div style="text-align:center; width:100%; color:#64748b; margin-top:20px;">現在、指名手配犯はいません。</div>';
@@ -173,4 +197,3 @@
 
 </body>
 </html>
-
