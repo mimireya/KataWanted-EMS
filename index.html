@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KataCity 指名手配犯リスト</title>
+    <title>ロスサントス警察 指名手配犯一覧</title>
     <style>
         body {
             background-color: #0f172a;
@@ -18,6 +18,7 @@
             letter-spacing: 2px;
             border-bottom: 2px solid #ef4444;
             padding-bottom: 10px;
+            text-transform: uppercase;
         }
         .container {
             max-width: 1200px;
@@ -37,31 +38,29 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
         }
         .name {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: bold;
             color: #f8fafc;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #334155;
-            padding-bottom: 5px;
+            margin-bottom: 15px;
+            background-color: #0f172a;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #ef4444;
+            white-space: pre-wrap; /* 複数人の改行（・山田\n・スズキ）をそのまま綺麗に表示する */
+            line-height: 1.5;
         }
         .info-label {
             color: #94a3b8;
             font-size: 0.85rem;
-            margin-top: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         .time {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             color: #fbbf24;
             font-weight: bold;
-        }
-        .charges {
-            font-size: 1rem;
-            color: #f1f5f9;
-            background-color: #0f172a;
-            padding: 8px;
-            border-radius: 4px;
             margin-top: 5px;
-            white-space: pre-wrap;
         }
         #loading {
             text-align: center;
@@ -87,37 +86,37 @@
             const response = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime());
             const csvText = await response.text();
             
-            // 最もシンプルで壊れない単純なカンマ区切りに修正
+            // CSVを「行」に分解
             const rows = csvText.split(/\r?\n/).map(row => row.split(','));
             const grid = document.getElementById('wanted-grid');
             const loading = document.getElementById('loading');
             
             let hasItems = false;
-            let cardHTML = ''; // 描画を1回にまとめてチカチカ（画面のちらつき）を完全に防止
+            let cardHTML = ''; 
 
+            // 1行目は見出しなので無視、2行目から処理
             for (let i = 1; i < rows.length; i++) {
                 const columns = rows[i];
-                if (!columns || columns.length < 3) continue;
+                if (!columns || columns.length < 2) continue;
 
-                // 空白行を徹底排除
+                // 空白行を排除
                 const checkText = columns.join('').replace(/"/g, '').trim();
                 if (checkText === "") continue;
 
                 hasItems = true;
                 
-                // 列から余計なダブルクォーテーション（"）を綺麗に消し去る
-                const timeData = columns[0].replace(/"/g, '').trim();    // A列：期限
-                const nameData = columns[1].replace(/"/g, '').trim();    // B列：名前
-                const chargesData = columns[2].replace(/"/g, '').trim(); // C列：罪状
+                // 【あなたの列順（A=期限、B=名前）に完璧に固定しました】
+                // ダブルクォーテーションを消し、スプレッドシート内の改行コード(;)をWebサイトの改行(\n)に変換
+                const timeData = columns[0].replace(/"/g, '').trim();    // A列：手配期限
+                const nameData = columns[1].replace(/"/g, '').replace(/;/g, '\n').trim();  // B列：名前（複数人の改行に対応）
 
-                // HTML文字列を後ろにどんどん追加していく
+                // カードの組み立て（罪状は完全に削除しました）
                 cardHTML += `
                     <div class="card">
+                        <div class="info-label">👤 指名手配犯</div>
                         <div class="name">${nameData}</div>
                         <div class="info-label">⏱️ 手配期限</div>
                         <div class="time">${timeData} まで</div>
-                        <div class="info-label">⚖️ 罪状</div>
-                        <div class="charges">${chargesData}</div>
                     </div>
                 `;
             }
@@ -125,22 +124,21 @@
             loading.style.display = 'none';
 
             if (hasItems) {
-                grid.innerHTML = cardHTML; // ここで一気に画面を書き換える（ついたり消えたりしなくなります）
+                grid.innerHTML = cardHTML; 
             } else {
                 grid.innerHTML = '<div style="text-align:center; width:100%; color:#64748b; margin-top:20px;">現在、指名手配犯はいません。</div>';
             }
 
         } catch (error) {
-            document.getElementById('loading').innerText = 'データの取得に失敗しました。URLの設定を確認してください。';
+            document.getElementById('loading').innerText = 'データの取得に失敗しました。';
             console.error('Error:', error);
         }
     }
 
     // 最初に実行
     fetchWantedList();
-    // 5分ごとに自動更新（300000ミリ秒）
+    // ご希望通り「5分ごと（300,000ミリ秒）」にゆったり自動更新します
     setInterval(fetchWantedList, 300000);
-
 </script>
 
 </body>
