@@ -1,52 +1,150 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-  <meta charset="utf-8">
-  <title>GitHub Pagesの機能で作ったホームページだよ</title>
-  <meta name="description" content="GitHub Pagesの機能で作ったホームページだよ">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KataCity 指名手配リスト</title>
+    <style>
+        /* 警察システム風のダークモードデザイン */
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #ef4444;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px solid #ef4444;
+            padding-bottom: 10px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        /* カードが並ぶグリッド */
+        #wanted-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        /* 指名手配カードのデザイン */
+        .card {
+            background-color: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            border-color: #ef4444;
+            transform: translateY(-2px);
+        }
+        .name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #f8fafc;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 5px;
+        }
+        .info-label {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        .time {
+            font-size: 1.1rem;
+            color: #fbbf24;
+            font-weight: bold;
+        }
+        .charges {
+            font-size: 1rem;
+            color: #f1f5f9;
+            background-color: #0f172a;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+            white-space: pre-wrap; /* 改行を有効にする */
+        }
+        #loading {
+            text-align: center;
+            color: #64748b;
+            margin-top: 50px;
+        }
+    </style>
 </head>
-
 <body>
-  <div class="container">
-    <header id="header">
-      <h1 class="site-title">
-        My page
-      </h1>
-    </header>
 
-    <main>
-      <div id="mainvisual">
-        GitHub Pagesで作ったホームページ
-      </div>
+<div class="container">
+    <h1>🚨 LSPD MOST WANTED LIST 🚨</h1>
+    <div id="loading">データを読み込み中...</div>
+    <div id="wanted-grid"></div>
+</div>
 
-      <section id="index">
-        <div class="inner">
-          <h2 class="section-title">GitHub Pagesの３つの特徴</h2>
-          <ol class="index-list">
-            <li>無料で簡単にWEBページを作成できます。</li>
-            <li>必要なものはGitHubアカウントだけ！</li>
-            <li>HTMLとCSSに加えてJavaScriptも組み合わせることができます。</li>
-          </ol>
-        </div>
-      </section>
+<script>
+    // ★★★ あなたのスプレッドシートのCSV URLをここに貼り付けてください ★★★
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQWKeE9aWSvmkzhJukH5F4qOKbjnnq7EMhwjXeFygS7YhY5h6OwIMGP0X71nvUm7nhE5MVMDxel7g4M/pub?gid=1408368286&single=true&output=csv'; 
+    // ↑ 上のURLを、ステップ1で取得した「https://google.com...」に書き換えます。
 
-      <section id="detail">
-        <div class="inner">
-          <h2 class="section-title">作った人</h2>
-          <div class="content">
-            <img class="img" src="cat.png" alt="">
-            <div class="text">
-              <p class="title">よしを</p>
-              <p>猫と焼き肉が大好きなエンジニア１年生</p>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
+    // データを取得して画面を書き換える関数
+    async function fetchWantedList() {
+        try {
+            const response = await fetch(CSV_URL + '&nocache=' + new Date().getTime()); // キャッシュ対策
+            const csvText = await response.text();
+            
+            // CSVデータを1行ずつ分解する
+            const rows = csvText.split('\n').map(row => row.split(','));
+            const grid = document.getElementById('wanted-grid');
+            const loading = document.getElementById('loading');
+            
+            grid.innerHTML = ''; // 画面を一度リセット
+            loading.style.display = 'none';
+
+            // 1行目は見出し（期限、名前、罪状、判定用日時）なので無視し、2行目から処理する
+            let hasItems = false;
+            for (let i = 1; i < rows.length; i++) {
+                const columns = rows[i];
+                if (columns.length < 3 || !columns[0] || columns[0].trim() === '') continue;
+
+                hasItems = true;
+                const timeData = columns[0].replace(/"/g, '');    // 期限
+                const nameData = columns[1].replace(/"/g, '');    // 名前
+                const chargesData = columns[2].replace(/"/g, '').replace(/;/g, '\n'); // 罪状
+
+                // カードのHTMLを生成
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="name">${nameData}</div>
+                    <div class="info-label">⏱️ 手配期限</div>
+                    <div class="time">${timeData} まで</div>
+                    <div class="info-label">⚖️ 罪状</div>
+                    <div class="charges">${chargesData}</div>
+                `;
+                grid.appendChild(card);
+            }
+
+            if (!hasItems) {
+                grid.innerHTML = '<div style="text-align:center; width:100%; color:#64748b;">現在、指名手配犯はいません。</div>';
+            }
+
+        } catch (error) {
+            console.error('データの取得に失敗しました:', error);
+        }
+    }
+
+    // 最初にページを開いたときに実行
+    fetchWantedList();
+
+    // ★★★ ここが超重要！30秒（30000ミリ秒）ごとに、自動で画面を最新状態に書き換えます ★★★
+    setInterval(fetchWantedList, 30000);
+</script>
+
 </body>
-
 </html>
