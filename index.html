@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KataCity指名手配犯リスト</title>
+    <title>指名手配リスト</title>
     <style>
         body {
             background-color: #0f172a;
@@ -46,7 +46,7 @@
             padding: 12px;
             border-radius: 6px;
             border-left: 4px solid #ef4444;
-            white-space: pre-wrap;
+            white-space: pre-wrap; /* 改行をそのまま表示する設定 */
             line-height: 1.6;
         }
         .info-label {
@@ -83,8 +83,8 @@
 </div>
 
 <script>
-    // ★★★ あなたのCSV URLをここに貼り付けてください ★★★
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQWKeE9aWSvmkzhJukH5F4qOKbjnnq7EMhwjXeFygS7YhY5h6OwIMGP0X71nvUm7nhE5MVMDxel7g4M/export?gid=1408368286&single=true&output=csv'; 
+    // ★★★ 即時反映されるエクスポートURLに書き換え済みです ★★★
+    const CSV_URL = 'https://google.com'; 
 
     function parseCSV(text) {
         let lines = [];
@@ -130,21 +130,25 @@
                 const columns = rows[i];
                 if (!columns || columns.length < 2) continue;
 
-                const checkText = columns.join('').trim();
-                if (checkText === "") continue;
+                // A列（期限）とB列（名前）のデータを取得
+                const timeData = columns[0] ? columns[0].trim() : ''; 
+                const nameData = columns[1] ? columns[1].trim() : '';
+
+                // もし期限も名前も両方空っぽだったら、その行はスキップ（表示しない）
+                if (timeData === "" && nameData === "") continue;
 
                 hasItems = true;
                 
-                const timeData = columns[0] ? columns[0].trim() : '未設定'; 
-                const nameData = columns[1] ? columns[1].trim() : '不明';
+                // データの最終調整（空欄の場合の文字を設定）
+                const displayTime = timeData ? timeData : '未設定';
+                const displayName = nameData ? nameData : '不明';
 
-                // 【手配期限が上、名前が下になるように並び順を逆にしました】
                 cardHTML += `
                     <div class="card">
                         <div class="info-label">⏱️ 手配期限</div>
-                        <div class="time">${timeData} まで</div>
+                        <div class="time">${displayTime} まで</div>
                         <div class="info-label">👤 指名手配犯</div>
-                        <div class="name">${nameData}</div>
+                        <div class="name">${displayName}</div>
                     </div>
                 `;
             }
@@ -169,3 +173,4 @@
 
 </body>
 </html>
+
