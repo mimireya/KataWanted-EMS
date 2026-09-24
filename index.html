@@ -79,7 +79,7 @@
 </div>
 
 <script>
-    // ★★★ あなたのCSV URLをここに貼り付けてください（前後のシングルクォーテーションを消さないように注意） ★★★
+    // ★★★ あなたのCSV URLをここに貼り付けてください ★★★
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQWKeE9aWSvmkzhJukH5F4qOKbjnnq7EMhwjXeFygS7YhY5h6OwIMGP0X71nvUm7nhE5MVMDxel7g4M/pub?gid=1408368286&single=true&output=csv'; 
 
     async function fetchWantedList() {
@@ -87,7 +87,11 @@
             const response = await fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + 'nocache=' + new Date().getTime());
             const csvText = await response.text();
             
-            const rows = csvText.split(/\r?\n/).map(row => row.split(','));
+            const rows = csvText.split(/\r?\n/).map(row => {
+                // カンマで正確に分解するための正規表現（罪状の中にカンマがあっても壊れない対策）
+                return row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*\$)/g) || row.split(',');
+            });
+            
             const grid = document.getElementById('wanted-grid');
             const loading = document.getElementById('loading');
             
@@ -95,17 +99,23 @@
             loading.style.display = 'none';
 
             let hasItems = false;
-            // 2行目からループスタート
+            
             for (let i = 1; i < rows.length; i++) {
                 const columns = rows[i];
                 
-                // 行データが正しく取得できない、または空白行の場合は飛ばす（フリーズ防止）
-                if (!columns || columns.length < 3 || !columns[0] || columns[0].trim() === "") continue;
+                // 列データが足りない場合は飛ばす
+                if (!columns || columns.length < 3) continue;
+
+                // スプレッドシートの空欄や改行だけの行を弾く
+                const checkText = columns.join('').replace(/"/g, '').trim();
+                if (checkText === "") continue;
 
                 hasItems = true;
-                const timeData = columns[0].replace(/"/g, '');    // 1列目：期限
-                const nameData = columns[1].replace(/"/g, '');    // 2列目：名前
-                const chargesData = columns[2].replace(/"/g, '').replace(/;/g, '\n'); // 3列目：罪状
+                
+                // 【あなたの列の並び順（A=期限、B=名前、C=罪状）に完全に合わせました】
+                const timeData = columns[0] ? columns[0].replace(/"/g, '') : '未設定';    // 1列目(A)：期限
+                const nameData = columns[1] ? columns[1].replace(/"/g, '') : '不明';      // 2列目(B)：名前
+                const chargesData = columns[2] ? columns[2].replace(/"/g, '').replace(/;/g, '\n') : 'なし'; // 3列目(C)：罪状
 
                 const card = document.createElement('div');
                 card.className = 'card';
@@ -130,7 +140,7 @@
     }
 
     fetchWantedList();
-    setInterval(fetchWantedList, 15000); // 同期を早くするため15秒に短縮
+    setInterval(fetchWantedList, 15000); // 15秒ごとに完全自動で画面更新
 </script>
 
 </body>
