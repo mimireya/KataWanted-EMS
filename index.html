@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LOS SANTOS POLICE - 指名手配リスト</title>
+    <title>KataCity指名手配リスト</title>
     <style>
         body { font-family: sans-serif; background-color: #11141a; color: #e1e7f0; padding: 20px; margin: 0; }
         h1 { text-align: center; color: #ff3333; letter-spacing: 4px; font-size: 28px; text-transform: uppercase; margin-bottom: 5px; }
@@ -24,11 +24,11 @@
     </style>
 </head>
 <body>
-    <h1>🚨 LOS SANTOS POLICE DEPARTMENT 🚨</h1>
+    <h1>🚨 KataCity WANTED LIST 🚨</h1>
     <div class="subtitle">CURRENT WANTED SUSPECTS DATABASE</div>
     <div class="container" id="wanted-list">データを読み込み中...</div>
 <script>
-    const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1215928219&single=true&output=csv";
+    const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
     function parseCSV(text) {
         let p = '', r = [[]], q = false;
@@ -73,11 +73,20 @@
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 if (!row || row.length < 2) continue; 
-                const timestamp = row[0];  
-                const discordText = row[1]; 
+
+                const timestamp = row[0];   // A列: 登録日時
+                const discordText = row[1]; // B列: 本文
+                const status = row[2] ? row[2].trim() : ""; // C列: 逮捕ステータス
+
+                // 🚨【ご要望：手動取り下げ機能】C列に「逮捕済み」と書かれていたら絶対に表示しない
+                if (status.includes("逮捕済み")) {
+                    continue; // カードを作らずに次のデータへスキップ
+                }
+
                 if (!discordText || !discordText.trim()) continue;
 
                 const limitDate = getLimitDate(discordText);
+                // 🚨【期限切れ自動消去】
                 if (limitDate && limitDate <= now) continue; 
 
                 const sortTime = limitDate ? limitDate.getTime() : 8640000000000000;
@@ -90,7 +99,7 @@
 
                 let limitTimeStr = "不明";
                 const timeMatch = discordText.match(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/);
-                if (timeMatch) limitTimeStr = timeMatch[0];
+                if (timeMatch) limitTimeStr = timeMatch;
 
                 const lines = discordText.split(/[\r\n]+/);
                 let suspects = []; let crimes = []; let isCrimeSection = false;
@@ -151,9 +160,7 @@
         }
     }
 
-    // 🔄【追加：自動リロード機能】
-    // サイトを開いたまま、5分（300000ミリ秒）ごとに最新データへ勝手にリロードします。
-    // ※ 1分に変えたい場合は 60000 に書き換えてください。
+    // 5分ごとに自動更新
     setInterval(function() {
         fetchWantedList();
     }, 300000);
