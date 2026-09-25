@@ -76,17 +76,16 @@
 
                 const timestamp = row[0];   // A列: 登録日時
                 const discordText = row[1]; // B列: 本文
-                const status = row[2] ? row[2].trim() : ""; // C列: 逮捕ステータス
+                const status = row[2] ? row[2].trim().toUpperCase() : ""; // C列: チェックボックス
 
-                // 🚨【ご要望：手動取り下げ機能】C列に「逮捕済み」と書かれていたら絶対に表示しない
-                if (status.includes("逮捕済み")) {
-                    continue; // カードを作らずに次のデータへスキップ
+                // 🚨【手動取り下げ機能】チェックが入っている（TRUE）または「逮捕済み」なら非表示
+                if (status === "TRUE" || status.includes("逮捕済み")) {
+                    continue; 
                 }
 
                 if (!discordText || !discordText.trim()) continue;
 
                 const limitDate = getLimitDate(discordText);
-                // 🚨【期限切れ自動消去】
                 if (limitDate && limitDate <= now) continue; 
 
                 const sortTime = limitDate ? limitDate.getTime() : 8640000000000000;
@@ -97,9 +96,12 @@
                     if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                 }
 
+                // 💡【ダブり修正】B列の「コピペ文の中だけ」から最初の1つ目の日付だけを確実に抜き出す
                 let limitTimeStr = "不明";
-                const timeMatch = discordText.match(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/);
-                if (timeMatch) limitTimeStr = timeMatch;
+                const timeMatch = discordText.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+                if (timeMatch) {
+                    limitTimeStr = timeMatch[0]; // 2つ取得せず、最初の「09/26 05:07」だけを正確に指定
+                }
 
                 const lines = discordText.split(/[\r\n]+/);
                 let suspects = []; let crimes = []; let isCrimeSection = false;
@@ -128,8 +130,10 @@
                     <div class="wanted-badge">${data.isUrgent ? 'URGENT' : 'WANTED'}</div>
                     <div class="limit-time">⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : 'まで'}</div>
                     <div class="reg-time">登録: ${data.timestamp}</div>
+                    
                     <div class="section-title">👤 容疑者等</div>
                     <div style="white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #fff; font-weight: bold;">${data.suspectPart}</div>
+                    
                     <div class="section-title">⚖️ 罪状</div>
                     <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
                         <span>罪状を確認 (隠されています)</span> <span>▼</span>
