@@ -2,18 +2,14 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LOS SANTOS POLICE - 指名手配リスト</title>
+    <title>LOS SANTOS POLICE - 指名手配</title>
     <style>
-        body { font-family: sans-serif; background-color: #11141a; color: #e1e7f0; padding: 20px; }
+        body { font-family: sans-serif; background-color: #11141a; color: #fff; padding: 20px; }
         h1 { text-align: center; color: #ff3333; }
-        .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
-        .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; padding: 20px; border-radius: 4px; position: relative; }
-        .wanted-badge { background: #ff3333; color: #fff; padding: 4px 10px; position: absolute; top: 15px; right: 15px; font-weight: bold; font-size: 11px; }
-        .limit-time { background: rgba(255, 51, 51, 0.1); color: #ff9999; padding: 6px; border-radius: 4px; font-weight: bold; margin-bottom: 15px; }
-        .section-title { font-size: 12px; color: #8a99ad; margin: 15px 0 5px 0; border-bottom: 1px solid #2d3545; }
-        .list-item { font-size: 15px; padding: 4px 0; color: #fff; }
-        /* 罪状を隠すボタン */
+        .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; padding: 15px; border-radius: 4px; }
+        .time { color: #8a99ad; font-size: 12px; margin-bottom: 10px; }
+        .text { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
         .toggle-btn { background: #252d3d; border: 1px solid #3b475c; color: #a3b3cc; padding: 6px; width: 100%; text-align: left; cursor: pointer; margin-top: 10px; }
         .toggle-content { display: none; background: #151921; padding: 10px; margin-top: 5px; }
     </style>
@@ -21,61 +17,44 @@
 <body>
 
     <h1>🚨 LOS SANTOS POLICE DEPARTMENT 🚨</h1>
-    <div class="container" id="wanted-list">データを読み込み中...</div>
+    <div class="container" id="wanted-list">【現在、通信待機中...】</div>
 
     <script>
         // ⚠️【ここにスプレッドシートの「ウェブに公開」で取得した .csv のURLを貼り付け】
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1215928219&single=true&output=csv";
 
-        // 最もシンプルなCSV分解（行と列に分けるだけ）
-        function parseCSV(text) {
-            return text.split('\n').map(row => row.replace(/^"|"\$/g, '').split('","'));
-        }
-
         async function fetchWantedList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL);
                 const csvText = await response.text();
-                const rows = parseCSV(csvText);
+                
+                // 行ごとに分ける
+                const lines = csvText.split('\n');
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = ''; 
 
-                // 今日の日付（例: "09/26"）を取得
-                const todayStr = new Date().toLocaleDateString('ja-JP', {month: '2-digit', day: '2-digit'});
+                // スプシの下の行（最新）から逆順にそのまま出すだけ
+                for (let i = lines.length - 1; i >= 1; i--) {
+                    let line = lines[i].trim();
+                    if (!line) continue;
 
-                // 最新が上に来るように、スプシの下の行から逆順にチェック
-                for (let i = rows.length - 1; i >= 1; i--) {
-                    const row = rows[i];
-                    if (!row || row.length < 2) continue; 
+                    // カンマで分割して、クォーテーションを消す
+                    let columns = line.split('","').map(c => c.replace(/^"|"\$/g, ''));
+                    if (columns.length < 2) continue;
 
-                    const timestamp = row[0];  
-                    const discordText = row[1]; 
-                    if (!discordText || !discordText.trim()) continue;
+                    const timestamp = columns[0];  // A列: 時間
+                    const discordText = columns[1]; // B列: 本文
 
-                    // 期限の文字（例: "09/26"）を文章から探す
-                    const dateMatch = discordText.match(/(\d{2}\/\d{2})/);
-                    
-                    // 🚨【期限切れ消去】もし期限の日付が書かれていて、それが今日より前なら非表示
-                    if (dateMatch && dateMatch[0] < todayStr) {
-                        continue; 
-                    }
-
-                    // 容疑者と罪状をざっくり分ける
+                    // 罪状を隠すために文章を分割
                     const parts = discordText.split('--- 罪状 ---');
-                    const suspectPart = parts[0] ? parts[0].replace('📢 指名手配', '').trim() : '';
+                    const suspectPart = parts[0] ? parts[Part = parts[0].replace('📢 指名手配', '').trim() : '';
                     const crimePart = parts[1] ? parts[1].trim() : '';
 
-                    // 表示用HTMLの組み立て
                     const card = document.createElement('div');
                     card.className = 'wanted-card';
                     card.innerHTML = `
-                        <div class="wanted-badge">WANTED</div>
-                        <div class="limit-time">⏱️ 登録: ${timestamp}</div>
-                        
-                        <div class="section-title">👤 容疑者</div>
-                        <div class="list-item" style="white-space: pre-wrap;">${suspectPart}</div>
-                        
-                        <div class="section-title">⚖️ 罪状</div>
+                        <div class="time">⏱️ 登録: ${timestamp}</div>
+                        <div class="text"><strong>👤 容疑者等:</strong><br>${suspectPart}</div>
                         <button class="toggle-btn" onclick="toggleSection(${i}, this)">[+] 罪状を確認 (隠されています)</button>
                         <div id="crime-${i}" class="toggle-content" style="white-space: pre-wrap;">${crimePart || 'なし'}</div>
                     `;
@@ -83,14 +62,13 @@
                 }
 
                 if (container.innerHTML === '') {
-                    container.innerHTML = '<div style="text-align: center; color: #8a99ad; padding: 40px;">現在、有効な指名手配はありません。</div>';
+                    container.innerHTML = '<div>有効なデータが見つかりませんでした。スプシを確認してください。</div>';
                 }
             } catch (error) {
-                document.getElementById('wanted-list').innerText = 'データの読み込みに失敗しました。';
+                document.getElementById('wanted-list').innerText = '通信エラーが発生しました。';
             }
         }
 
-        // 罪状を開閉するだけのシンプルな機能
         function toggleSection(id, btn) {
             const content = document.getElementById('crime-' + id);
             if (content.style.display === "block") {
@@ -106,4 +84,3 @@
     </script>
 </body>
 </html>
-
