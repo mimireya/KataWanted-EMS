@@ -90,7 +90,7 @@
 
                 let limitTimeStr = "不明";
                 const timeMatch = discordText.match(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/);
-                if (timeMatch) limitTimeStr = timeMatch[1];
+                if (timeMatch) limitTimeStr = timeMatch[0];
 
                 const lines = discordText.split(/[\r\n]+/);
                 let suspects = []; let crimes = []; let isCrimeSection = false;
@@ -150,6 +150,13 @@
             btn.innerHTML = "<span>罪状を隠す</span> <span>▲</span>";
         }
     }
+
+    // 🔄【追加：自動リロード機能】
+    // サイトを開いたまま、5分（300000ミリ秒）ごとに最新データへ勝手にリロードします。
+    // ※ 1分に変えたい場合は 60000 に書き換えてください。
+    setInterval(function() {
+        fetchWantedList();
+    }, 300000);
 
     fetchWantedList();
 </script>
