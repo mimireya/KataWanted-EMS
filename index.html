@@ -10,7 +10,6 @@
         .subtitle { text-align: center; color: #8a99ad; font-size: 14px; margin-bottom: 30px; letter-spacing: 1px; }
         .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
         
-        /* 手配書カード */
         .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; border-radius: 4px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); position: relative; border-top: 1px solid #2d3545; border-right: 1px solid #2d3545; border-bottom: 1px solid #2d3545; }
         .wanted-badge { background: #ff3333; color: #fff; font-weight: bold; padding: 4px 12px; position: absolute; top: 15px; right: 15px; border-radius: 2px; font-size: 11px; letter-spacing: 1px; }
         .card-title { color: #ff5555; font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
@@ -22,7 +21,6 @@
         .list-item::before { content: "▪"; color: #ff3333; position: absolute; left: 0; top: 3px; font-size: 10px; }
         .crime-item::before { color: #ffcc00; }
         
-        /* 罪状を隠すトグル用 */
         .toggle-btn { background: #252d3d; border: 1px solid #3b475c; color: #a3b3cc; font-size: 12px; font-weight: bold; cursor: pointer; padding: 6px 12px; border-radius: 4px; width: 100%; text-align: left; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
         .toggle-btn:hover { background: #2d374a; color: #fff; }
         .toggle-content { display: none; background: #151921; padding: 10px; border-radius: 4px; border: 1px dashed #3b475c; margin-top: 5px; }
@@ -63,18 +61,17 @@
 
         // 期限文字列（"09/26 02:55" など）を比較可能なDateオブジェクトに変換する関数
         function parseLimitDate(limitStr) {
-            if (!limitStr || limitStr === "不明") return new Date(8640000000000000); // 期限不明は一番後ろにする
+            if (!limitStr || limitStr === "不明") return new Date(8640000000000000); 
             try {
                 const match = limitStr.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
                 if (!match) return new Date(8640000000000000);
                 
                 const now = new Date();
-                const month = parseInt(match[1]) - 1;
-                const day = parseInt(match[2]);
-                const hours = parseInt(match[3]);
-                const minutes = parseInt(match[4]);
+                const month = parseInt(match[1]) - 1; // 修正箇所：[1]を付与
+                const day = parseInt(match[2]);       // 修正箇所：[2]を付与
+                const hours = parseInt(match[3]);     // 修正箇所：[3]を付与
+                const minutes = parseInt(match[4]);   // 修正箇所：[4]を付与
                 
-                // 年の跨ぎを考慮（例：今が12月で期限が1月なら翌年とする）
                 let year = now.getFullYear();
                 if (now.getMonth() === 11 && month === 0) year += 1;
 
@@ -93,10 +90,9 @@
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = ''; 
 
-                const now = new Date(); // 現在時刻を取得
+                const now = new Date(); 
                 let cardDataList = [];
 
-                // データパースと期限チェック
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
@@ -137,10 +133,9 @@
                         suspects.push(discordText);
                     }
 
-                    // 期限日時の解析
                     const limitDate = parseLimitDate(limitTimeStr);
 
-                    // 🚨 【期限切れ消去機能】現在時刻が期限を過ぎていたらリストに入れない（非表示にする）
+                    // 🚨 【期限切れ消去機能】
                     if (limitDate <= now) {
                         continue; 
                     }
@@ -155,7 +150,7 @@
                     });
                 }
 
-                // ⏳ 【期限順に並び替え】期限が近いもの（残り時間が少ないもの）を上に
+                // ⏳ 【期限順に並び替え】
                 cardDataList.sort((a, b) => a.limitDate - b.limitDate);
 
                 // カードの描画
@@ -166,7 +161,6 @@
                     let suspectsHtml = data.suspects.map(s => `<div class="list-item">${s}</div>`).join('');
                     let crimesHtml = data.crimes.map(c => `<div class="list-item crime-item">${c}</div>`).join('');
 
-                    // 罪状を個別のIDで管理して開閉できるようにする
                     card.innerHTML = `
                         <div class="wanted-badge">WANTED</div>
                         <div class="card-title">📢 指名手配令</div>
@@ -191,3 +185,8 @@
                 });
 
                 if (container.innerHTML === '') {
+                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #8a99ad; padding: 40px;">現在、有効な指名手配はありません。</div>';
+                }
+
+            } catch (error) {
+                console.error('データの取得に失敗しました:', error);
