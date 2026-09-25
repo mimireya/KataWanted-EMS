@@ -10,12 +10,23 @@
         .subtitle { text-align: center; color: #8a99ad; font-size: 14px; margin-bottom: 30px; letter-spacing: 1px; }
         .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
         
-        /* 手配書カードのデザイン */
+        /* 通常の手配書カード */
         .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; border-radius: 4px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); position: relative; border-top: 1px solid #2d3545; border-right: 1px solid #2d3545; border-bottom: 1px solid #2d3545; }
         .wanted-badge { background: #ff3333; color: #fff; font-weight: bold; padding: 4px 12px; position: absolute; top: 15px; right: 15px; border-radius: 2px; font-size: 11px; letter-spacing: 1px; }
         .limit-time { background: rgba(255, 51, 51, 0.1); border: 1px solid rgba(255, 51, 51, 0.2); color: #ff9999; font-size: 13px; padding: 6px 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; }
-        .reg-time { color:#52637a; font-size:11px; margin-top:-10px; margin-bottom:15px; }
+        
+        /* 🚨 残り1時間未満の緊急カード（オレンジベースに変身） */
+        .wanted-card.urgent { border-left: 5px solid #ff9900; background: #24211a; border-top: 1px solid #4a3b1a; border-right: 1px solid #4a3b1a; border-bottom: 1px solid #4a3b1a; animation: pulse-border 2s infinite alternate; }
+        .wanted-card.urgent .wanted-badge { background: #ff9900; color: #11141a; }
+        .wanted-card.urgent .limit-time { background: rgba(255, 153, 0, 0.15); border: 1px solid rgba(255, 153, 0, 0.3); color: #ffb84d; }
+        
+        /* 緊急時のおすすめ点滅アニメーション */
+        @keyframes pulse-border {
+            0% { box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+            100% { box-shadow: 0 0 20px rgba(255, 153, 0, 0.4); }
+        }
 
+        .reg-time { color:#52637a; font-size:11px; margin-top:-10px; margin-bottom:15px; }
         .section-title { font-size: 12px; color: #8a99ad; text-transform: uppercase; letter-spacing: 1px; margin: 15px 0 5px 0; border-bottom: 1px solid #2d3545; padding-bottom: 3px; font-weight: bold; }
         
         /* 罪状を隠すボタン */
@@ -32,36 +43,35 @@
     <div class="container" id="wanted-list">データを読み込み中...</div>
 
     <script>
-        // ⚠️【ここに先ほど成功したスプレッドシートの .csv のURLを貼り付け】
+        // ⚠️【ここにスプレッドシートの「ウェブに公開」で取得した .csv のURLを貼り付け】
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1215928219&single=true&output=csv";
 
-        // 最も安全で確実なCSV行分割
         function parseCSV(text) {
             let lines = text.split('\n');
             return lines.map(line => line.replace(/^"|"\$/g, '').split('","'));
         }
 
-        // 期限文字列（"09/26 02:55" など）を比較可能な日付オブジェクトに安全に変換
+        // 期限の文字列を日付データ(Date)に安全に変換する関数
         function parseLimitDate(text) {
+            if (!text) return null;
+            // 文章の中から「09/26 02:55」形式を抜き出す
             const match = text.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
             if (!match) return null;
             
             const now = new Date();
-            const month = parseInt(match[1], 10) - 1;
+            const month = parseInt(match[1], 10) - 1; // 月は0から始まるため-1
             const day = parseInt(match[2], 10);
             const hours = parseInt(match[3], 10);
             const minutes = parseInt(match[4], 10);
             
             let year = now.getFullYear();
-            // 12月に1月の期限が出た場合などの年跨ぎ対応
-            if (now.getMonth() === 11 && month === 0) year += 1;
+            if (now.getMonth() === 11 && month === 0) year += 1; // 年跨ぎ対応
             
             return new Date(year, month, day, hours, minutes);
         }
 
         async function fetchWantedList() {
             try {
-                // キャッシュを強制無視しておねだりするURL
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "cache=" + new Date().getTime());
                 const csvText = await response.text();
                 const rows = parseCSV(csvText);
@@ -69,55 +79,83 @@
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = ''; 
 
-                const now = new Date(); // 現在時刻（これより前なら消す）
+                const now = new Date(); // 現在の時刻
+                let validCards = [];
 
-                // スプシの下の行（最新）から逆順にループ
-                for (let i = rows.length - 1; i >= 1; i--) {
+                for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
-                    const timestamp = row[0];  // A列: 登録日時
-                    const discordText = row[1]; // B列: 本文
+                    const timestamp = row[0];  
+                    const discordText = row[1]; 
                     if (!discordText || !discordText.trim()) continue;
 
-                    // 🚨【期限切れ消去機能】
                     const limitDate = parseLimitDate(discordText);
+                    
+                    // 🚨【期限切れ自動消去】期限を過ぎていたら表示リストに入れない
                     if (limitDate && limitDate <= now) {
-                        continue; // すでに期限を過ぎていたら、カードを作らずに次のデータへ飛ばす
+                        continue; 
                     }
 
-                    // 文章から期限部分のテキストだけを抜き出す
+                    // 期限がテキストにない場合は一番後ろに並ぶように遠い未来の日付にする
+                    const sortDate = limitDate ? limitDate : new Date(8640000000000000);
+
+                    // 残り時間の計算（ミリ秒）
+                    let isUrgent = false;
+                    if (limitDate) {
+                        const diffTime = limitDate - now; 
+                        const oneHour = 60 * 60 * 1000;
+                        if (diffTime > 0 && diffTime < oneHour) {
+                            isUrgent = true; // 🚨 残り1時間未満フラグをON
+                        }
+                    }
+
                     let limitTimeStr = "不明";
                     const timeMatch = discordText.match(/🕐️?\s*(\d{2}\/\d{2}\s+\d{2}:\d{2})/);
                     if (timeMatch) limitTimeStr = timeMatch[1];
 
-                    // 容疑者と罪状を「--- 罪状 ---」の文字で真っ二つに分ける
                     const parts = discordText.split('--- 罪状 ---');
-                    
-                    // 上半分（タイトルや容疑者名）から「📢 指名手配」の行を削って綺麗にする
                     let suspectPart = parts[0] ? parts[0].replace(/📢\s*指名手配.*/, '').trim() : '';
                     let crimePart = parts[1] ? parts[1].trim() : '';
 
-                    const card = document.createElement('div');
-                    card.className = 'wanted-card';
-                    card.innerHTML = `
-                        <div class="wanted-badge">WANTED</div>
-                        <div class="limit-time">⏱️ 期限: ${limitTimeStr} まで</div>
-                        <div class="reg-time">登録: ${timestamp}</div>
-                        
-                        <div class="section-title">👤 容疑者等</div>
-                        <div style="white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #fff;">${suspectPart}</div>
-                        
-                        <div class="section-title">⚖️ 罪状</div>
-                        <button class="toggle-btn" onclick="toggleSection(${i}, this)">
-                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
-                        </button>
-                        <div id="crime-${i}" class="toggle-content" style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #ffcc00;">${crimePart || '記載なし'}</div>
-                    `;
-                    container.appendChild(card);
+                    // データを配列に一時保存する
+                    validCards.push({
+                        id: i,
+                        sortDate: sortDate,
+                        isUrgent: isUrgent,
+                        limitTimeStr: limitTimeStr,
+                        timestamp: timestamp,
+                        suspectPart: suspectPart,
+                        crimePart: crimePart
+                    });
                 }
 
-                // 表示できるカードが1つも残らなかった場合
+                // ⏳【ご要望：期限順に並び替え】期限が近いものを一番上にソート
+                validCards.sort((a, b) => a.sortDate - b.sortDate);
+
+                // 並び替えた順にカードを作成して画面に並べる
+                validCards.forEach(data => {
+                    const card = document.createElement('div');
+                    // 残り1時間未満なら「urgent」クラスをつけてオレンジ色＆点滅にする
+                    card.className = `wanted-card ${data.isUrgent ? 'urgent' : ''}`;
+                    
+                    card.innerHTML = `
+                        <div class="wanted-badge">${data.isUrgent ? 'URGENT' : 'WANTED'}</div>
+                        <div class="limit-time">⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : 'まで'}</div>
+                        <div class="reg-time">登録: ${data.timestamp}</div>
+                        
+                        <div class="section-title">👤 容疑者等</div>
+                        <div style="white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #fff;">${data.suspectPart}</div>
+                        
+                        <div class="section-title">⚖️ 罪状</div>
+                        <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
+                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
+                        </button>
+                        <div id="crime-${data.id}" class="toggle-content" style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #ffcc00;">${data.crimePart || '記載なし'}</div>
+                    `;
+                    container.appendChild(card);
+                });
+
                 if (container.innerHTML === '') {
                     container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #8a99ad; padding: 40px; font-size: 15px;">現在、有効な指名手配はありません。</div>';
                 }
@@ -127,7 +165,6 @@
             }
         }
 
-        // 罪状を開閉する機能
         function toggleSection(id, btn) {
             const content = document.getElementById('crime-' + id);
             if (content.style.display === "block") {
