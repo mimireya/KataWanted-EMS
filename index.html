@@ -10,7 +10,6 @@
         .subtitle { text-align: center; color: #8a99ad; font-size: 14px; margin-bottom: 30px; letter-spacing: 1px; }
         .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
         
-        /* 手配書カードのデザイン */
         .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; border-radius: 4px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); position: relative; border-top: 1px solid #2d3545; border-right: 1px solid #2d3545; border-bottom: 1px solid #2d3545; }
         .wanted-badge { background: #ff3333; color: #fff; font-weight: bold; padding: 4px 12px; position: absolute; top: 15px; right: 15px; border-radius: 2px; font-size: 11px; letter-spacing: 1px; }
         .limit-time { background: rgba(255, 51, 51, 0.1); border: 1px solid rgba(255, 51, 51, 0.2); color: #ff9999; font-size: 13px; padding: 6px 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; }
@@ -28,7 +27,6 @@
         .reg-time { color:#52637a; font-size:11px; margin-top:-10px; margin-bottom:15px; }
         .section-title { font-size: 12px; color: #8a99ad; text-transform: uppercase; letter-spacing: 1px; margin: 15px 0 5px 0; border-bottom: 1px solid #2d3545; padding-bottom: 3px; font-weight: bold; }
         
-        /* 罪状を隠すボタン */
         .toggle-btn { background: #252d3d; border: 1px solid #3b475c; color: #a3b3cc; font-size: 12px; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; width: 100%; text-align: left; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
         .toggle-btn:hover { background: #2d374a; color: #fff; }
         .toggle-content { display: none; background: #151921; padding: 12px; border-radius: 4px; border: 1px dashed #3b475c; margin-top: 5px; }
@@ -50,20 +48,20 @@
             return lines.map(line => line.replace(/^"|"\$/g, '').split('","'));
         }
 
-        // 期限の文字列を日付データ(Date)に正確に変換
+        // 修正箇所：インデックス番号 [1], [2], [3], [4] を正しく追加し、日付計算を完全に修正
         function parseLimitDate(text) {
             if (!text) return null;
             const match = text.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
             if (!match) return null;
             
             const now = new Date();
-            const month = parseInt(match[1], 10) - 1; // 修正：[1]などを追加
+            const month = parseInt(match[1], 10) - 1; 
             const day = parseInt(match[2], 10);
             const hours = parseInt(match[3], 10);
             const minutes = parseInt(match[4], 10);
             
             let year = now.getFullYear();
-            if (now.getMonth() === 11 && month === 0) year += 1; // 年跨ぎ対応
+            if (now.getMonth() === 11 && month === 0) year += 1; 
             
             return new Date(year, month, day, hours, minutes);
         }
@@ -90,14 +88,14 @@
 
                     const limitDate = parseLimitDate(discordText);
                     
-                    // 🚨【期限切れ自動消去】
+                    // 🚨【期限切れ自動消去】期限を過ぎていたら非表示
                     if (limitDate && limitDate <= now) {
                         continue; 
                     }
 
                     const sortDate = limitDate ? limitDate : new Date(8640000000000000);
 
-                    // 残り時間の計算
+                    // 残り時間の計算（1時間未満で緊急モード）
                     let isUrgent = false;
                     if (limitDate) {
                         const diffTime = limitDate - now; 
