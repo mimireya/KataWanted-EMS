@@ -48,6 +48,24 @@
             return lines.map(line => line.replace(/^"|"\$/g, '').split('","'));
         }
 
+        // コピペの文章から、確実に日付（月、日、時、分）を数値に分解してDateオブジェクトを作る関数
+        function getLimitDate(text) {
+            if (!text) return null;
+            // どんな前後の文字や絵文字があっても、「数字/数字 数字:数字」の並びを確実に抜き出す
+            const match = text.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+            if (!match) return null;
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = parseInt(match[1], 10) - 1; // 0-11にする
+            const day = parseInt(match[2], 10);
+            const hour = parseInt(match[3], 10);
+            const minute = parseInt(match[4], 10);
+
+            // 正確に日本時間で日付オブジェクトを作成
+            return new Date(year, month, day, hour, minute);
+        }
+
         async function fetchWantedList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "cache=" + new Date().getTime());
@@ -57,60 +75,49 @@
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = ''; 
 
-                // 現在の「月/日 時:分」の文字列を作成 (例: "09/26 02:55")
-                const now = new Date();
-                const currentStr = 
-                    String(now.getMonth() + 1).padStart(2, '0') + '/' + 
-                    String(now.getDate()).padStart(2, '0') + ' ' + 
-                    String(now.getHours()).padStart(2, '0') + ':' + 
-                    String(now.getMinutes()).padStart(2, '0');
-
-                // 1時間後の「月/日 時:分」の文字列を作成
-                const oneHourLater = new Date(now.getTime() + (60 * 60 * 1000));
-                const oneHourLaterStr = 
-                    String(oneHourLater.getMonth() + 1).padStart(2, '0') + '/' + 
-                    String(oneHourLater.getDate()).padStart(2, '0') + ' ' + 
-                    String(oneHourLater.getHours()).padStart(2, '0') + ':' + 
-                    String(oneHourLater.getMinutes()).padStart(2, '0');
-
+                const now = new Date(); // 現在の日本時間
                 let validCards = [];
 
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
-                    const timestamp = row;  
-                    const discordText = row; 
+                    const timestamp = row[0];  
+                    const discordText = row[1]; 
                     if (!discordText || !discordText.trim()) continue;
 
-                    // 文章から期限部分（09/26 02:55）を抜き出す
-                    let limitTimeStr = "不明";
-                    const timeMatch = discordText.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
-                    if (timeMatch) {
-                        limitTimeStr = timeMatch; // "09/26 02:55" の形にする
-                    }
-
-                    // 🚨【期限切れ自動消去】テキストのまま比較して、現在より前の日時なら非表示
-                    if (limitTimeStr !== "不明" && limitTimeStr < currentStr) {
+                    const limitDate = getLimitDate(discordText);
+                    
+                    // 🚨【期限切れ自動消去】期限日時を過ぎていたら絶対に表示しない
+                    if (limitDate && limitDate <= now) {
                         continue; 
                     }
 
-                    // 🚨【1時間未満判定】現在時間より後、かつ、1時間後より前の時間なら緊急モード
+                    // 期限が計算できないものは一番後ろへ
+                    const sortTime = limitDate ? limitDate.getTime() : 8640000000000000;
+
+                    // 🚨【1時間未満緊急判定】
                     let isUrgent = false;
-                    if (limitTimeStr !== "不明" && limitTimeStr >= currentStr && limitTimeStr < oneHourLaterStr) {
-                        isUrgent = true;
+                    if (limitDate) {
+                        const diffMs = limitDate.getTime() - now.getTime();
+                        const oneHourMs = 60 * 60 * 1000;
+                        if (diffMs > 0 && diffMs < oneHourMs) {
+                            isUrgent = true; 
+                        }
                     }
 
-                    // ソート用の文字列（期限不明は一番後ろへ）
-                    const sortKey = limitTimeStr === "不明" ? "99/99 99:99" : limitTimeStr;
+                    // 画面表示用の期限の文字列
+                    let limitTimeStr = "不明";
+                    const timeMatch = discordText.match(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/);
+                    if (timeMatch) limitTimeStr = timeMatch[1];
 
                     const parts = discordText.split('--- 罪状 ---');
-                    let suspectPart = parts ? parts.replace(/📢\s*指名手配.*/, '').trim() : '';
-                    let crimePart = parts ? parts.trim() : '';
+                    let suspectPart = parts[0] ? parts[0].replace(/📢\s*指名手配.*/, '').trim() : '';
+                    let crimePart = parts[1] ? parts[1].trim() : '';
 
                     validCards.push({
                         id: i,
-                        sortKey: sortKey,
+                        sortTime: sortTime,
                         isUrgent: isUrgent,
                         limitTimeStr: limitTimeStr,
                         timestamp: timestamp,
@@ -119,8 +126,8 @@
                     });
                 }
 
-                // ⏳【期限順に並び替え】
-                validCards.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+                // ⏳【期限順に並び替え】残り時間が少ないものを一番上に
+                validCards.sort((a, b) => a.sortTime - b.sortTime);
 
                 // カードの描画
                 validCards.forEach(data => {
