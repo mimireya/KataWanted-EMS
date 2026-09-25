@@ -62,7 +62,10 @@
     }
     async function fetchWantedList() {
         try {
-            const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "cache=" + new Date().getTime());
+            // 💡【最速化の裏技】URLの末尾に、毎回変わるランダムな数字(秒数)をくっつけてGoogleの5分キャッシュを強制突破します
+            const forceFreshUrl = SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Math.floor(Date.now() / 1000);
+            
+            const response = await fetch(forceFreshUrl);
             const csvText = await response.text();
             const rows = parseCSV(csvText);
             const container = document.getElementById('wanted-list');
@@ -74,11 +77,10 @@
                 const row = rows[i];
                 if (!row || row.length < 2) continue; 
 
-                const timestamp = row[0];   // A列: 登録日時
-                const discordText = row[1]; // B列: 本文
-                const status = row[2] ? row[2].trim().toUpperCase() : ""; // C列: チェックボックス
+                const timestamp = row[0];   
+                const discordText = row[1]; 
+                const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
-                // 🚨【手動取り下げ機能】チェックが入っている（TRUE）または「逮捕済み」なら非表示
                 if (status === "TRUE" || status.includes("逮捕済み")) {
                     continue; 
                 }
@@ -96,7 +98,6 @@
                     if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                 }
 
-                // 💡【ダブり修正反映】最初の1つ目の日付だけを確実に抜き出す
                 let limitTimeStr = "不明";
                 const timeMatch = discordText.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
                 if (timeMatch) {
@@ -164,7 +165,7 @@
         }
     }
 
-    // 🔄【3分ごとに自動更新するタイマーに設定（180000ミリ秒）】
+    // 🔄【3分ごとに自動更新タイマーを実行】
     setInterval(function() {
         fetchWantedList();
     }, 180000);
