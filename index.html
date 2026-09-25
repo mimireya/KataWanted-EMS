@@ -5,95 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LOS SANTOS POLICE - 指名手配リスト</title>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #11141a; color: #e1e7f0; padding: 20px; margin: 0; }
-        h1 { text-align: center; color: #ff3333; letter-spacing: 4px; font-size: 28px; text-transform: uppercase; margin-bottom: 5px; }
-        .subtitle { text-align: center; color: #8a99ad; font-size: 14px; margin-bottom: 30px; letter-spacing: 1px; }
-        .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
-        
-        .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; border-radius: 4px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); position: relative; border-top: 1px solid #2d3545; border-right: 1px solid #2d3545; border-bottom: 1px solid #2d3545; }
-        .wanted-badge { background: #ff3333; color: #fff; font-weight: bold; padding: 4px 12px; position: absolute; top: 15px; right: 15px; border-radius: 2px; font-size: 11px; letter-spacing: 1px; }
-        .card-title { color: #ff5555; font-size: 18px; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
-        .limit-time { background: rgba(255, 51, 51, 0.1); border: 1px solid rgba(255, 51, 51, 0.2); color: #ff9999; font-size: 13px; padding: 6px 10px; border-radius: 4px; margin-bottom: 15px; font-weight: bold; }
-        .reg-time { color:#52637a; font-size:11px; margin-top:-10px; margin-bottom:15px; }
-
-        .section-title { font-size: 12px; color: #8a99ad; text-transform: uppercase; letter-spacing: 1px; margin: 15px 0 5px 0; border-bottom: 1px solid #2d3545; padding-bottom: 3px; font-weight: bold; }
-        .list-item { font-size: 15px; padding: 4px 0; padding-left: 15px; position: relative; color: #fff; }
-        .list-item::before { content: "▪"; color: #ff3333; position: absolute; left: 0; top: 3px; font-size: 10px; }
-        .crime-item::before { color: #ffcc00; }
-        
-        .toggle-btn { background: #252d3d; border: 1px solid #3b475c; color: #a3b3cc; font-size: 12px; font-weight: bold; cursor: pointer; padding: 6px 12px; border-radius: 4px; width: 100%; text-align: left; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
-        .toggle-btn:hover { background: #2d374a; color: #fff; }
-        .toggle-content { display: none; background: #151921; padding: 10px; border-radius: 4px; border: 1px dashed #3b475c; margin-top: 5px; }
-        
-        .raw-text-btn { background: none; border: none; color: #414f63; font-size: 11px; cursor: pointer; padding: 0; margin-top: 15px; text-decoration: underline; display: block; }
-        .raw-text { display: none; background: #11141a; font-size: 12px; padding: 10px; border-radius: 4px; margin-top: 5px; color: #8a99ad; white-space: pre-wrap; border: 1px solid #2d3545; }
+        body { font-family: sans-serif; background-color: #11141a; color: #e1e7f0; padding: 20px; }
+        h1 { text-align: center; color: #ff3333; }
+        .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
+        .wanted-card { background: #1c2029; border-left: 5px solid #ff3333; padding: 20px; border-radius: 4px; position: relative; }
+        .wanted-badge { background: #ff3333; color: #fff; padding: 4px 10px; position: absolute; top: 15px; right: 15px; font-weight: bold; font-size: 11px; }
+        .limit-time { background: rgba(255, 51, 51, 0.1); color: #ff9999; padding: 6px; border-radius: 4px; font-weight: bold; margin-bottom: 15px; }
+        .section-title { font-size: 12px; color: #8a99ad; margin: 15px 0 5px 0; border-bottom: 1px solid #2d3545; }
+        .list-item { font-size: 15px; padding: 4px 0; color: #fff; }
+        /* 罪状を隠すボタン */
+        .toggle-btn { background: #252d3d; border: 1px solid #3b475c; color: #a3b3cc; padding: 6px; width: 100%; text-align: left; cursor: pointer; margin-top: 10px; }
+        .toggle-content { display: none; background: #151921; padding: 10px; margin-top: 5px; }
     </style>
 </head>
 <body>
 
     <h1>🚨 LOS SANTOS POLICE DEPARTMENT 🚨</h1>
-    <div class="subtitle">CURRENT WANTED SUSPECTS DATABASE</div>
-    
     <div class="container" id="wanted-list">データを読み込み中...</div>
 
     <script>
         // ⚠️【ここにスプレッドシートの「ウェブに公開」で取得した .csv のURLを貼り付け】
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1215928219&single=true&output=csv";
 
+        // 最もシンプルなCSV分解（行と列に分けるだけ）
         function parseCSV(text) {
-            let p = '', r = [[]], q = false;
-            for (let i = 0; i < text.length; i++) {
-                let c = text[i], next = text[i+1];
-                if (c === '"') {
-                    if (q && next === '"') { p += '"'; i++; }
-                    else { q = !q; }
-                } else if (c === ',' && !q) {
-                    r[r.length-1].push(p); p = '';
-                } else if ((c === '\r' || c === '\n') && !q) {
-                    if (c === '\r' && next === '\n') { i++; }
-                    r[r.length-1].push(p); p = '';
-                    r.push([]);
-                } else { p += c; }
-            }
-            if (p || text[text.length-1] === ',') r[r.length-1].push(p);
-            return r.filter(row => row.length > 0);
-        }
-
-        // 期限文字列（"09/26 02:55" など）を比較可能なDateオブジェクトに変換する関数
-        function parseLimitDate(limitStr) {
-            if (!limitStr || limitStr === "不明") return new Date(8640000000000000); 
-            try {
-                const match = limitStr.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
-                if (!match) return new Date(8640000000000000);
-                
-                const now = new Date();
-                const month = parseInt(match[1]) - 1; // 修正箇所：[1]を付与
-                const day = parseInt(match[2]);       // 修正箇所：[2]を付与
-                const hours = parseInt(match[3]);     // 修正箇所：[3]を付与
-                const minutes = parseInt(match[4]);   // 修正箇所：[4]を付与
-                
-                let year = now.getFullYear();
-                if (now.getMonth() === 11 && month === 0) year += 1;
-
-                return new Date(year, month, day, hours, minutes);
-            } catch (e) {
-                return new Date(8640000000000000);
-            }
+            return text.split('\n').map(row => row.replace(/^"|"\$/g, '').split('","'));
         }
 
         async function fetchWantedList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL);
                 const csvText = await response.text();
-                
                 const rows = parseCSV(csvText);
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = ''; 
 
-                const now = new Date(); 
-                let cardDataList = [];
+                // 今日の日付（例: "09/26"）を取得
+                const todayStr = new Date().toLocaleDateString('ja-JP', {month: '2-digit', day: '2-digit'});
 
-                for (let i = 1; i < rows.length; i++) {
+                // 最新が上に来るように、スプシの下の行から逆順にチェック
+                for (let i = rows.length - 1; i >= 1; i--) {
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
@@ -101,92 +52,58 @@
                     const discordText = row[1]; 
                     if (!discordText || !discordText.trim()) continue;
 
-                    const lines = discordText.split(/[\r\n]+/);
-                    let limitTimeStr = "不明";
-                    let suspects = [];
-                    let crimes = [];
-                    let isCrimeSection = false;
-
-                    lines.forEach(line => {
-                        let trimmed = line.trim();
-                        if (!trimmed) return;
-
-                        if (trimmed.includes('🕐️')) {
-                            limitTimeStr = trimmed.replace('🕐️', '').trim().replace('まで', '').trim();
-                        } else if (trimmed.includes('--- 罪状 ---')) {
-                            isCrimeSection = true;
-                        } else if (trimmed.includes('📢 指名手配')) {
-                            return;
-                        } else if (trimmed.startsWith('・')) {
-                            let value = trimmed.replace('・', '').trim();
-                            if (value === "") return;
-                            
-                            if (isCrimeSection) {
-                                crimes.push(value);
-                            } else {
-                                suspects.push(value);
-                            }
-                        }
-                    });
-
-                    if (suspects.length === 0 && crimes.length === 0) {
-                        suspects.push(discordText);
-                    }
-
-                    const limitDate = parseLimitDate(limitTimeStr);
-
-                    // 🚨 【期限切れ消去機能】
-                    if (limitDate <= now) {
+                    // 期限の文字（例: "09/26"）を文章から探す
+                    const dateMatch = discordText.match(/(\d{2}\/\d{2})/);
+                    
+                    // 🚨【期限切れ消去】もし期限の日付が書かれていて、それが今日より前なら非表示
+                    if (dateMatch && dateMatch[0] < todayStr) {
                         continue; 
                     }
 
-                    cardDataList.push({
-                        timestamp,
-                        discordText,
-                        limitTimeStr,
-                        limitDate,
-                        suspects,
-                        crimes
-                    });
-                }
+                    // 容疑者と罪状をざっくり分ける
+                    const parts = discordText.split('--- 罪状 ---');
+                    const suspectPart = parts[0] ? parts[0].replace('📢 指名手配', '').trim() : '';
+                    const crimePart = parts[1] ? parts[1].trim() : '';
 
-                // ⏳ 【期限順に並び替え】
-                cardDataList.sort((a, b) => a.limitDate - b.limitDate);
-
-                // カードの描画
-                cardDataList.forEach((data, index) => {
+                    // 表示用HTMLの組み立て
                     const card = document.createElement('div');
                     card.className = 'wanted-card';
-                    
-                    let suspectsHtml = data.suspects.map(s => `<div class="list-item">${s}</div>`).join('');
-                    let crimesHtml = data.crimes.map(c => `<div class="list-item crime-item">${c}</div>`).join('');
-
                     card.innerHTML = `
                         <div class="wanted-badge">WANTED</div>
-                        <div class="card-title">📢 指名手配令</div>
-                        <div class="limit-time">⏱️ 期限: ${data.limitTimeStr} まで</div>
-                        <div class="reg-time">登録: ${data.timestamp}</div>
+                        <div class="limit-time">⏱️ 登録: ${timestamp}</div>
                         
                         <div class="section-title">👤 容疑者</div>
-                        <div>${suspectsHtml}</div>
+                        <div class="list-item" style="white-space: pre-wrap;">${suspectPart}</div>
                         
                         <div class="section-title">⚖️ 罪状</div>
-                        <button class="toggle-btn" onclick="toggleSection('crime-${index}', this)">
-                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
-                        </button>
-                        <div id="crime-${index}" class="toggle-content">
-                            ${crimesHtml || '<div style="color:#52637a; font-size:14px;">-</div>'}
-                        </div>
-                        
-                        <button class="raw-text-btn" onclick="toggleRaw(this)">元文を表示</button>
-                        <div class="raw-text">${data.discordText}</div>
+                        <button class="toggle-btn" onclick="toggleSection(${i}, this)">[+] 罪状を確認 (隠されています)</button>
+                        <div id="crime-${i}" class="toggle-content" style="white-space: pre-wrap;">${crimePart || 'なし'}</div>
                     `;
                     container.appendChild(card);
-                });
-
-                if (container.innerHTML === '') {
-                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #8a99ad; padding: 40px;">現在、有効な指名手配はありません。</div>';
                 }
 
+                if (container.innerHTML === '') {
+                    container.innerHTML = '<div style="text-align: center; color: #8a99ad; padding: 40px;">現在、有効な指名手配はありません。</div>';
+                }
             } catch (error) {
-                console.error('データの取得に失敗しました:', error);
+                document.getElementById('wanted-list').innerText = 'データの読み込みに失敗しました。';
+            }
+        }
+
+        // 罪状を開閉するだけのシンプルな機能
+        function toggleSection(id, btn) {
+            const content = document.getElementById('crime-' + id);
+            if (content.style.display === "block") {
+                content.style.display = "none";
+                btn.innerText = "[+] 罪状を確認 (隠されています)";
+            } else {
+                content.style.display = "block";
+                btn.innerText = "[-] 罪状を隠す";
+            }
+        }
+
+        fetchWantedList();
+    </script>
+</body>
+</html>
+
