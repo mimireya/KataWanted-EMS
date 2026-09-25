@@ -20,67 +20,32 @@
     <div class="container" id="wanted-list">【現在、通信待機中...】</div>
 
     <script>
-        // ⚠️【ここにスプレッドシートの「ウェブに公開」で取得した .csv のURLを貼り付け】
-        const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1215928219&single=true&output=csv";
+<script>
+    // ⚠️ ここにスプシのURLを入れてください（最後は pub?gid=xxx&output=csv の形式）
+    const SPREADSHEET_CSV_URL = "ここにウェブ公開したCSVのURLを入れる";
 
-        async function fetchWantedList() {
-            try {
-                const response = await fetch(SPREADSHEET_CSV_URL);
-                const csvText = await response.text();
+    async function fetchWantedList() {
+        try {
+            // 通信の裏技（キャッシュを強制無視する設定）を追加してデータを取得
+            const response = await fetch(SPREADSHEET_CSV_URL + "&cache=" + new Date().getTime());
+            const csvText = await response.text();
+            
+            const container = document.getElementById('wanted-list');
+            
+            // 🚨【テスト用】届いた文字データを、そのまま画面にドンと表示させる
+            container.innerHTML = `
+                <div style="background:#222; padding:15px; border:1px solid #ffcc00; color:#ffcc00; font-family:monospace; white-space:pre-wrap;">
+                    【スプシからの通信に成功しました！以下が届いたデータです】\n\n${csvText}
+                </div>`;
                 
-                // 行ごとに分ける
-                const lines = csvText.split('\n');
-                const container = document.getElementById('wanted-list');
-                container.innerHTML = ''; 
-
-                // スプシの下の行（最新）から逆順にそのまま出すだけ
-                for (let i = lines.length - 1; i >= 1; i--) {
-                    let line = lines[i].trim();
-                    if (!line) continue;
-
-                    // カンマで分割して、クォーテーションを消す
-                    let columns = line.split('","').map(c => c.replace(/^"|"\$/g, ''));
-                    if (columns.length < 2) continue;
-
-                    const timestamp = columns[0];  // A列: 時間
-                    const discordText = columns[1]; // B列: 本文
-
-                    // 罪状を隠すために文章を分割
-                    const parts = discordText.split('--- 罪状 ---');
-                    const suspectPart = parts[0] ? parts[Part = parts[0].replace('📢 指名手配', '').trim() : '';
-                    const crimePart = parts[1] ? parts[1].trim() : '';
-
-                    const card = document.createElement('div');
-                    card.className = 'wanted-card';
-                    card.innerHTML = `
-                        <div class="time">⏱️ 登録: ${timestamp}</div>
-                        <div class="text"><strong>👤 容疑者等:</strong><br>${suspectPart}</div>
-                        <button class="toggle-btn" onclick="toggleSection(${i}, this)">[+] 罪状を確認 (隠されています)</button>
-                        <div id="crime-${i}" class="toggle-content" style="white-space: pre-wrap;">${crimePart || 'なし'}</div>
-                    `;
-                    container.appendChild(card);
-                }
-
-                if (container.innerHTML === '') {
-                    container.innerHTML = '<div>有効なデータが見つかりませんでした。スプシを確認してください。</div>';
-                }
-            } catch (error) {
-                document.getElementById('wanted-list').innerText = '通信エラーが発生しました。';
-            }
+        } catch (error) {
+            document.getElementById('wanted-list').innerText = '通信エラーが発生しました: ' + error.message;
         }
+    }
 
-        function toggleSection(id, btn) {
-            const content = document.getElementById('crime-' + id);
-            if (content.style.display === "block") {
-                content.style.display = "none";
-                btn.innerText = "[+] 罪状を確認 (隠されています)";
-            } else {
-                content.style.display = "block";
-                btn.innerText = "[-] 罪状を隠す";
-            }
-        }
+    fetchWantedList();
+</script>
 
-        fetchWantedList();
     </script>
 </body>
 </html>
