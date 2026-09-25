@@ -96,11 +96,11 @@
                     if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                 }
 
-                // 💡【ダブり修正】B列の「コピペ文の中だけ」から最初の1つ目の日付だけを確実に抜き出す
+                // 💡【ダブり修正反映】最初の1つ目の日付だけを確実に抜き出す
                 let limitTimeStr = "不明";
                 const timeMatch = discordText.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
                 if (timeMatch) {
-                    limitTimeStr = timeMatch[0]; // 2つ取得せず、最初の「09/26 05:07」だけを正確に指定
+                    limitTimeStr = timeMatch[0]; 
                 }
 
                 const lines = discordText.split(/[\r\n]+/);
@@ -164,7 +164,7 @@
         }
     }
 
-    // 3分ごとに自動更新
+    // 🔄【3分ごとに自動更新するタイマーに設定（180000ミリ秒）】
     setInterval(function() {
         fetchWantedList();
     }, 180000);
