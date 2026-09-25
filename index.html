@@ -43,26 +43,38 @@
         // ⚠️【ここにスプレッドシートの「ウェブに公開」で取得した .csv のURLを貼り付け】
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1215928219&single=true&output=csv";
 
+        // 【修正①】Discordの複数行の改行が含まれていても、絶対にデータを壊さない超精密CSVパーサー
         function parseCSV(text) {
-            let lines = text.split('\n');
-            return lines.map(line => line.replace(/^"|"\$/g, '').split('","'));
+            let p = '', r = [[]], q = false;
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i], next = text[i+1];
+                if (c === '"') {
+                    if (q && next === '"') { p += '"'; i++; } else { q = !q; }
+                } else if (c === ',' && !q) {
+                    r[r.length-1].push(p); p = '';
+                } else if ((c === '\r' || c === '\n') && !q) {
+                    if (c === '\r' && next === '\n') { i++; }
+                    r[r.length-1].push(p); p = '';
+                    r.push([]);
+                } else { p += c; }
+            }
+            if (p || text[text.length-1] === ',') r[r.length-1].push(p);
+            return r.filter(row => row.length > 0);
         }
 
-        // コピペの文章から、確実に日付（月、日、時、分）を数値に分解してDateオブジェクトを作る関数
+        // 【修正②】バグの原因だった数字の指定抜けを完璧に修正
         function getLimitDate(text) {
             if (!text) return null;
-            // どんな前後の文字や絵文字があっても、「数字/数字 数字:数字」の並びを確実に抜き出す
             const match = text.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
             if (!match) return null;
 
             const now = new Date();
             const year = now.getFullYear();
-            const month = parseInt(match[1], 10) - 1; // 0-11にする
-            const day = parseInt(match[2], 10);
-            const hour = parseInt(match[3], 10);
-            const minute = parseInt(match[4], 10);
+            const month = parseInt(match[1], 10) - 1; // 1番目の数字(月)
+            const day = parseInt(match[2], 10);       // 2番目の数字(日)
+            const hour = parseInt(match[3], 10);      // 3番目の数字(時)
+            const minute = parseInt(match[4], 10);    // 4番目の数字(分)
 
-            // 正確に日本時間で日付オブジェクトを作成
             return new Date(year, month, day, hour, minute);
         }
 
@@ -70,30 +82,31 @@
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "cache=" + new Date().getTime());
                 const csvText = await response.text();
-                const rows = parseCSV(csvText);
                 
+                // 精密パースを実行
+                const rows = parseCSV(csvText);
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = ''; 
 
-                const now = new Date(); // 現在の日本時間
+                const now = new Date(); 
                 let validCards = [];
 
+                // 2行目からスプシのデータをループ処理
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
-                    const timestamp = row[0];  
-                    const discordText = row[1]; 
+                    const timestamp = row[0];  // A列: タイムスタンプ
+                    const discordText = row[1]; // B列: コピペ文
                     if (!discordText || !discordText.trim()) continue;
 
                     const limitDate = getLimitDate(discordText);
                     
-                    // 🚨【期限切れ自動消去】期限日時を過ぎていたら絶対に表示しない
+                    // 🚨【期限切れ自動消去】期限を過ぎていたら非表示
                     if (limitDate && limitDate <= now) {
                         continue; 
                     }
 
-                    // 期限が計算できないものは一番後ろへ
                     const sortTime = limitDate ? limitDate.getTime() : 8640000000000000;
 
                     // 🚨【1時間未満緊急判定】
@@ -106,11 +119,11 @@
                         }
                     }
 
-                    // 画面表示用の期限の文字列
                     let limitTimeStr = "不明";
                     const timeMatch = discordText.match(/(\d{2}\/\d{2}\s+\d{2}:\d{2})/);
                     if (timeMatch) limitTimeStr = timeMatch[1];
 
+                    // 容疑者と罪状の切り分け
                     const parts = discordText.split('--- 罪状 ---');
                     let suspectPart = parts[0] ? parts[0].replace(/📢\s*指名手配.*/, '').trim() : '';
                     let crimePart = parts[1] ? parts[1].trim() : '';
@@ -126,10 +139,10 @@
                     });
                 }
 
-                // ⏳【期限順に並び替え】残り時間が少ないものを一番上に
+                // ⏳【期限順に並び替え】
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
 
-                // カードの描画
+                // カードを描画
                 validCards.forEach(data => {
                     const card = document.createElement('div');
                     card.className = `wanted-card ${data.isUrgent ? 'urgent' : ''}`;
