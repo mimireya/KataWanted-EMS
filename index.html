@@ -67,12 +67,13 @@
             return lines;
         }
 
+        // 💡 クラッシュの原因になっていたパース処理を完全に修正
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             const now = new Date();
-            return new Date(2026, parseInt(timeMatch[10]) - 1, parseInt(timeMatch[10]), parseInt(timeMatch[10]), parseInt(timeMatch[10]));
+            return new Date(2026, parseInt(timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
         }
 
         async function fetchList() {
@@ -84,7 +85,6 @@
                 container.innerHTML = '';
 
                 let validCards = [];
-                // 💡 重複を防ぐための部屋
                 let processedKeys = new Set(); 
                 const now = new Date();
 
@@ -101,6 +101,7 @@
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
+                    // 💡 【期限切れの自動削除機能】これで正常に動くようになります
                     if (!isSpecial && limitDate && limitDate <= now) continue;
 
                     let limitTimeStr = "不明";
@@ -128,10 +129,10 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
-                    // 💡 【安全な重複チェック】名前と期限をくっつけた文字（例:「・ああ太郎09/2705:41」）を鍵にします
+                    // 💡 安全な重複チェックキー
                     const uniqueKey = suspectPart.replace(/\s+/g, '') + limitTimeStr.replace(/\s+/g, '');
                     if (processedKeys.has(uniqueKey)) {
-                        continue; // 名前と期限が完全に一致するカードがすでにあれば飛ばす
+                        continue; 
                     }
                     processedKeys.add(uniqueKey);
 
@@ -143,7 +144,6 @@
                         }
                     }
 
-                    // 30分未満ならテキストに警告をくっつける
                     if (!isSpecial && isUnder30Min) {
                         limitTimeStr += " 🚨（残り30分未満！）";
                     }
@@ -161,7 +161,6 @@
                     });
                 }
 
-                // 期限が近い順に並び替え
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
 
                 validCards.forEach(data => {
@@ -183,7 +182,7 @@
                         <div class="suspect-text">${data.suspectPart}</div>
                         <div class="section-title">⚖️ 詳細</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
-                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
+                            <span>詳細を確認 (隠されています)</span> <span>▼</span>
                         </button>
                         <div id="crime-${data.id}" class="toggle-content">${data.crimePart || '・記載なし'}</div>
                     `;
