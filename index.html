@@ -178,10 +178,10 @@
             });
         }
 
-        // 💡 期限日時を安全に判定・取得する修正版関数
+        // 💡 期限日時を「🕐️ 09/27 05:41 まで」という実際の形式から安全に抽出する強化版関数
         function getLimitDate(text) {
             if (!text || text.includes('無期限')) return null;
-            // 「MM/DD HH:MM」の形式を正確に探します
+            // 「00/00 00:00」の形をしている部分を正確に抜き出します
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             
@@ -212,7 +212,7 @@
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
-                    // 💡 CSVの列番号(インデックス)を元の正しい設定に戻しました
+                    // 💡 スプレッドシートの「Discord通知本文」がはいっている正しい列を指すように修正
                     const discordText = row[1]; 
                     const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
@@ -222,7 +222,7 @@
                     const isIndefinite = discordText.includes('無期限');
                     const limitDate = getLimitDate(discordText);
                     
-                    // 💡 【期限切れの自動非表示】期限が現在時刻を過ぎている場合はリストに入れない（画面から消す）
+                    // 💡 【期限切れ判定】無期限ではなく、期限が現在時刻を過ぎている場合は自動で消す
                     if (!isIndefinite && limitDate && limitDate <= now) {
                         continue; 
                     }
@@ -236,12 +236,13 @@
                         if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                     }
 
+                    // 💡 期限表示のテキストを見やすく整形
                     let limitTimeStr = "不明";
                     if (isIndefinite) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = discordText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[0]; 
+                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで"; 
                     }
 
                     const lines = discordText.split(/[\r\n]+/);
@@ -249,14 +250,18 @@
 
                     lines.forEach(line => {
                         let trimmed = line.trim(); if (!trimmed) return;
-                        if (trimmed.includes('特殊指名手配') || trimmed.includes('無期限')) return;
+                        
+                        // 「指名手配」のヘッダー行や期限表示の行は名前リストに入れないよう除外
+                        if (trimmed === '指名手配' || trimmed.includes('特殊指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('🕐️')) return;
+
                         if (trimmed.includes('--- 罪状 ---')) { isCrimeSection = true; }
                         else if (trimmed.startsWith('・')) {
                             if (isCrimeSection) { crimes.push(trimmed); } else { suspects.push(trimmed); }
                         }
                     });
 
-                    if (suspects.length === 0) suspects.push(discordText);
+                    // 容疑者名がうまく取れなかったときのセーフティ
+                    if (suspects.length === 0) suspects.push("記載なし");
                     let suspectPart = suspects.join('\n');
                     let crimePart = crimes.join('\n');
 
@@ -271,7 +276,7 @@
                     card.setAttribute('data-size', currentSize);
                     
                     let badgeText = data.isUrgent ? 'URGENT' : (data.isIndefinite ? '特殊指名手配' : 'WANTED');
-                    let timeDisplayText = data.isIndefinite ? `⏱️ 期限: ${data.limitTimeStr}` : `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : 'まで'}`;
+                    let timeDisplayText = data.isIndefinite ? `⏱️ 期限: ${data.limitTimeStr}` : `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : ''}`;
                     
                     card.innerHTML = `
                         <div class="wanted-badge">${badgeText}</div>
