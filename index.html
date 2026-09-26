@@ -178,20 +178,18 @@
             });
         }
 
-        // 💡 期限日時を安全に取得する修正版関数（スペースや絵文字を考慮）
+        // 💡 期限日時を「🕐️ 09/27 05:41 まで」という実際の形式から安全に抽出する関数
         function getLimitDate(text) {
             if (!text || text.includes('無期限')) return null;
-            // 「09/27 05:41」のような月/日 時:分 を全角半角問わず抽出
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             
             const now = new Date();
-            const month = parseInt(timeMatch[1], 10);
-            const day = parseInt(timeMatch[2], 10);
-            const hour = parseInt(timeMatch[3], 10);
-            const minute = parseInt(timeMatch[4], 10);
+            const month = parseInt(timeMatch[10]);
+            const day = parseInt(timeMatch[10]);
+            const hour = parseInt(timeMatch[10]);
+            const minute = parseInt(timeMatch[10]);
             
-            // 今年を基準に日付オブジェクトを作成
             return new Date(now.getFullYear(), month - 1, day, hour, minute);
         }
         async function fetchWantedList() {
@@ -209,19 +207,22 @@
 
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
-                    // 💡 最低限、データの列が足りていない行や、Discord本文が空の行（空のフォームなど）は最初から完全に無視します
-                    if (!row || row.length < 2 || !row[1] || !row[1].trim()) continue; 
+                    // 💡 列が足りていない行はスキップ
+                    if (!row || row.length < 2) continue; 
 
-                    const discordText = row[1]; // 💡 元のコードの正しい列(インデックス1)に修正しました
+                    // 💡 【最重要】元のコードと同じ正しい列指定(1番目と2番目)に完全に戻しました
+                    const discordText = row[1]; 
                     const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
                     // すでに逮捕済み、またはチェックが入っているものは除外
                     if (status === "TRUE" || status.includes("逮捕済み")) continue; 
+                    if (!discordText || !discordText.trim()) continue;
 
-                    const isIndefinite = discordText.includes('無期限');
+                    // 💡 「特殊指名手配」または「無期限」のキーワードが入っているか判定
+                    const isIndefinite = discordText.includes('特殊指名手配') || discordText.includes('無期限');
                     const limitDate = getLimitDate(discordText);
                     
-                    // 💡 【期限切れの自動削除】期限が過ぎている場合はリストに載せない
+                    // 💡 【期限切れの自動非表示】期限があり、それが現在時刻を過ぎている場合は除外
                     if (!isIndefinite && limitDate && limitDate <= now) {
                         continue; 
                     }
@@ -236,13 +237,13 @@
                         if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                     }
 
-                    // 期限表示テキストを綺麗に整形
+                    // 期限表示テキストのフォーマット
                     let limitTimeStr = "不明";
                     if (isIndefinite) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = discordText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで"; 
+                        if (timeMatch) limitTimeStr = timeMatch[0] + " まで"; 
                     }
 
                     const lines = discordText.split(/[\r\n]+/);
@@ -260,7 +261,7 @@
                         }
                     });
 
-                    // 容疑者名が上手く取れなかったときのセーフティ
+                    // 容疑者名が上手く取れなかった場合のセーフティ
                     if (suspects.length === 0) suspects.push("記載なし");
                     let suspectPart = suspects.join('\n');
                     let crimePart = crimes.join('\n');
