@@ -6,7 +6,7 @@
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         
-        /* 🔲 サイズ変更用の設定（大：1列、中：2列、小：3列） */
+        /* 🔲 各自の環境で並びを変えられる設定（大：1列、中：2列、小：3列） */
         #wanted-list { display: grid; gap: 16px; width: 100%; }
         #wanted-list[data-size="small"] { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
         #wanted-list[data-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
@@ -17,7 +17,7 @@
         .wanted-badge { display: inline-block; padding: 4px 8px; background: #ff3333; color: #fff; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 10px; }
         .text-area { white-space: pre-wrap; font-weight: bold; font-size: 15px; line-height: 1.6; color: #fff; }
 
-        /* 👑 特殊指名手配（無期限）用の紫＆ゴールドデザイン */
+        /* 👑 特殊指名手配（無期限）用の特別紫デザイン */
         .wanted-card.special-mode { border: 2px solid #b300ff !important; background: linear-gradient(135deg, #1b1124 0%, #11091a 100%) !important; box-shadow: 0 0 15px rgba(179, 0, 255, 0.2); }
         .wanted-card.special-mode .wanted-badge { background: linear-gradient(90deg, #b300ff 0%, #d4af37 100%) !important; color: #fff !important; }
     </style>
@@ -44,12 +44,12 @@
             document.getElementById('wanted-list').setAttribute('data-size', size);
         }
 
-        // 最も壊れにくいシンプルなCSVパース（解析）処理
+        // 最も壊れにくいシンプルなCSV解析処理
         function parseSpreadsheetCSV(text) {
             let lines = text.split('\n');
             let result = [];
             for (let i = 0; i < lines.length; i++) {
-                let line = lines[i];
+                let line = lines[i].trim();
                 if (!line) continue;
                 let cells = [];
                 let currentCell = '';
@@ -71,6 +71,25 @@
             return result;
         }
 
+        // 期限が切れているか判定する関数
+        function isExpired(text) {
+            if (!text || text.includes('無期限')) return false; // 無期限は絶対に消さない
+            
+            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+            if (!timeMatch) return false;
+            
+            const now = new Date();
+            const month = parseInt(timeMatch[1], 10);
+            const day = parseInt(timeMatch[2], 10);
+            const hour = parseInt(timeMatch[3], 10);
+            const minute = parseInt(timeMatch[4], 10);
+            
+            const limitDate = new Date(now.getFullYear(), month - 1, day, hour, minute);
+            
+            // 期限が現在の時刻を過ぎていたら「真（期限切れ）」を返す
+            return limitDate <= now;
+        }
+
         // リストを取得して画面にカードを作るメイン機能
         async function fetchList() {
             try {
@@ -81,36 +100,30 @@
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = '';
 
-                // 2行目（インデックス1）から順番に1行ずつチェック
+                // 2行目（インデックス1）から処理
                 for (let i = 1; i < allRows.length; i++) {
                     const currentRow = allRows[i];
-                    
-                    // A列（タイムスタンプ）とB列（本文）が無ければ飛ばす
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    // 💡 列データを変数へ確実に固定取得（0=A列, 1=B列, 2=C列）
+                    // A列=タイムスタンプ, B列=コピペ本文, C列=チェックボックス
                     const targetText = currentRow[1]; 
                     const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
-                    // 💡 【逮捕済みの自動削除】C列にチェック（TRUE）が入っていれば画面に表示しない
-                    if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) {
-                        continue;
-                    }
-                    if (!targetText || !targetText.trim()) {
-                        continue;
-                    }
+                    // 💡 【逮捕済みの自動削除】C列にチェック（TRUE）が入っていれば消す
+                    if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
+                    if (!targetText || !targetText.trim()) continue;
+
+                    // 💡 【期限切れの自動削除】
+                    if (isExpired(targetText)) continue;
 
                     // 💡 「特殊指名手配」または「無期限」の文字列が含まれているかチェック
-                    const isSpecialHandan = targetText.includes('特殊指名手配') || targetText.includes('無期限');
+                    const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
 
                     // 🗂️ 手配書カードの見た目を組み立てる
                     const cardElement = document.createElement('div');
-                    cardElement.className = "wanted-card";
-                    if (isSpecialHandan === true) {
-                        cardElement.className = "wanted-card special-mode";
-                    }
+                    cardElement.className = `wanted-card ${isSpecial ? 'special-mode' : ''}`;
 
-                    const badgeName = (isSpecialHandan === true) ? '特殊指名手配' : 'WANTED';
+                    const badgeName = isSpecial ? '特殊指名手配' : 'WANTED';
 
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
@@ -119,7 +132,7 @@
                     container.appendChild(cardElement);
                 }
 
-                // もし有効なカードが1枚も残らなかった場合
+                // 有効なカードが1枚もない場合
                 if (container.innerHTML === '') {
                     container.innerHTML = '<div style="text-align: center; color: #8a99ad; padding: 40px; font-size: 15px;">現在、有効な指名手配はありません。</div>';
                 }
@@ -128,9 +141,8 @@
             }
         }
 
-        // ページを開いた瞬間に1回実行
+        // 起動時と3分ごとの自動更新
         fetchList();
-        // 以降、3分（180000ミリ秒）ごとに自動的に最新状態へ更新
         setInterval(fetchList, 180000);
     </script>
 </body>
