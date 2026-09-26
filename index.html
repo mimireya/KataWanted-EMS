@@ -9,15 +9,27 @@
         #wanted-list[data-size="small"] { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
         #wanted-list[data-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
         #wanted-list[data-size="large"] { grid-template-columns: 1fr; }
-        .wanted-card { background: #171d26; border: 1px solid #252d3d; border-radius: 8px; padding: 16px; box-sizing: border-box; }
+        .wanted-card { background: #171d26; border: 1px solid #252d3d; border-radius: 8px; padding: 16px; box-sizing: border-box; transition: all 0.3s ease; }
         .wanted-badge { display: inline-block; padding: 4px 8px; background: #ff3333; color: #fff; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 12px; }
         .limit-time { font-size: 14px; color: #ffcc00; font-weight: bold; margin-bottom: 12px; }
         .section-title { color: #8a99ad; font-size: 12px; font-weight: bold; margin-bottom: 6px; margin-top: 14px; border-left: 3px solid #3b485e; padding-left: 6px; }
         .suspect-text { white-space: pre-wrap; font-weight: bold; font-size: 16px; color: #fff; line-height: 1.5; }
         .toggle-btn { display: flex; justify-content: space-between; width: 100%; padding: 8px 12px; background: #252d3d; border: none; color: #a3b3cc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; margin-top: 6px; }
         .toggle-content { display: none; margin-top: 8px; padding: 12px; background: #11141a; border-radius: 4px; white-space: pre-wrap; color: #ffcc00; font-size: 14px; line-height: 1.5; font-weight: bold; }
+        
+        /* 👑 特殊指名手配（無期限）用の特別紫デザイン */
         .wanted-card.special-mode { border: 2px solid #b300ff !important; background: linear-gradient(135deg, #1b1124 0%, #11091a 100%) !important; box-shadow: 0 0 15px rgba(179, 0, 255, 0.2); }
         .wanted-card.special-mode .wanted-badge { background: linear-gradient(90deg, #b300ff 0%, #d4af37 100%) !important; }
+
+        /* 🚨 【修正】残り30分未満の警告カードデザイン（柔らかいオレンジ色に点滅） */
+        .wanted-card.alert-mode { border: 2px solid #ff9900 !important; box-shadow: 0 0 15px rgba(255, 153, 0, 0.4); animation: pulseAlert 2.5s infinite; }
+        .wanted-card.alert-mode .wanted-badge { background: #ff9900 !important; color: #11141a !important; }
+        .wanted-card.alert-mode .limit-time { color: #ff9900 !important; }
+        @keyframes pulseAlert {
+            0% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
+            50% { box-shadow: 0 0 4px rgba(255, 153, 0, 0.1); }
+            100% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
+        }
     </style>
 </head>
 <body>
@@ -30,7 +42,6 @@
     </div>
 
     <div id="wanted-list" data-size="medium"></div>
-
     <script>
         // ⚠️ ここにご自身のGoogleスプレッドシートのCSV URLを確実に貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
@@ -56,21 +67,12 @@
             return lines;
         }
 
-        // 💡 期限切れを自動で判定する関数
-        function isExpired(text) {
-            if (!text || text.includes('無期限')) return false; 
-            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
-            if (!timeMatch) return false;
-            
+        function parseLimitDateObj(text) {
+            if (!text || text.includes('無期限')) return null;
+            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2})\:(\d{1,2})/);
+            if (!timeMatch) return null;
             const now = new Date();
-            const month = parseInt(timeMatch[1], 10);
-            const day = parseInt(timeMatch[2], 10);
-            const hour = parseInt(timeMatch[3], 10);
-            const minute = parseInt(timeMatch[4], 10);
-            
-            // 2026年の日付オブジェクトを作成
-            const limitDate = new Date(2026, month - 1, day, hour, minute);
-            return limitDate <= now;
+            return new Date(2026, parseInt(timeMatch, 10) - 1, parseInt(timeMatch, 10), parseInt(timeMatch, 10), parseInt(timeMatch, 10));
         }
 
         async function fetchList() {
@@ -85,24 +87,34 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow[1]; 
-                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
+                    const targetText = currentRow; 
+                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
 
-                    // 💡 【逮捕済みの削除】C列がTRUEなら消す
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
 
-                    // 💡 【期限切れの自動非表示】期限が現在時刻を過ぎていたら非表示（消す）
-                    if (isExpired(targetText)) continue;
-
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
+                    const limitDate = parseLimitDateObj(targetText);
+                    const now = new Date();
+
+                    if (!isSpecial && limitDate && limitDate <= now) continue;
+
+                    let isUnder30Min = false;
+                    if (!isSpecial && limitDate) {
+                        const diffMs = limitDate.getTime() - now.getTime();
+                        if (diffMs > 0 && diffMs < 30 * 60 * 1000) {
+                            isUnder30Min = true;
+                        }
+                    }
 
                     let limitTimeStr = "不明";
                     if (isSpecial) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        limitTimeStr = timeMatch ? timeMatch[0] + " まで" : "不明";
+                        if (timeMatch) {
+                            limitTimeStr = timeMatch + " まで" + (isUnder30Min ? " 🚨（残り30分未満！）" : "");
+                        }
                     }
 
                     const lines = targetText.split(/[\r\n]+/);
@@ -123,10 +135,18 @@
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
                     const cardElement = document.createElement('div');
-                    cardElement.className = `wanted-card ${isSpecial ? 'special-mode' : ''}`;
+                    if (isSpecial) {
+                        cardElement.className = "wanted-card special-mode";
+                    } else if (isUnder30Min) {
+                        cardElement.className = "wanted-card alert-mode";
+                    } else {
+                        cardElement.className = "wanted-card";
+                    }
+
+                    const badgeName = isSpecial ? '特殊指名手配' : (isUnder30Min ? '🚨 URGENT' : 'WANTED');
 
                     cardElement.innerHTML = `
-                        <div class="wanted-badge">${isSpecial ? '特殊指名手配' : 'WANTED'}</div>
+                        <div class="wanted-badge">${badgeName}</div>
                         <div class="limit-time">⏱️ 期限: ${limitTimeStr}</div>
                         <div class="section-title">👤 容疑者等</div>
                         <div class="suspect-text">${suspectPart}</div>
