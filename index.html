@@ -44,31 +44,50 @@
             document.getElementById('wanted-list').setAttribute('data-size', size);
         }
 
-        // 最も壊れにくいシンプルなCSV解析処理
-        function parseSpreadsheetCSV(text) {
-            let lines = text.split('\n');
-            let result = [];
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (!line) continue;
-                let cells = [];
-                let currentCell = '';
-                let insideQuotes = false;
-                for (let j = 0; j < line.length; j++) {
-                    let char = line[j];
-                    if (char === '"') {
-                        insideQuotes = !insideQuotes;
-                    } else if (char === ',' && !insideQuotes) {
-                        cells.push(currentCell);
-                        currentCell = '';
+        /* 💡 【超強力修正】改行入りの長い文章を1文字ずつ完璧に仕分けるパースプログラム */
+        function robustParseCSV(text) {
+            let lines = [];
+            let row = [];
+            let currentCell = '';
+            let inQuotes = false;
+
+            // 文字が何もなければ終了
+            if (!text) return lines;
+
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                let nextChar = text[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // 2つ連続するダブルクォーテーションは1つの文字として扱う
+                        currentCell += '"';
+                        i++;
                     } else {
-                        currentCell += char;
+                        // クォートの開始、または終了
+                        inQuotes = !inQuotes;
                     }
+                } else if (char === ',' && !inQuotes) {
+                    // カンマで区切る
+                    row.push(currentCell);
+                    currentCell = '';
+                } else if ((char === '\r' || char === '\n') && !inQuotes) {
+                    // 文章の途中の改行ではなく、本当の「行の終わり」が来たらデータを格納
+                    if (char === '\r' && nextChar === '\n') i++; // Windows用の改行対策
+                    row.push(currentCell);
+                    lines.push(row);
+                    row = [];
+                    currentCell = '';
+                } else {
+                    currentCell += char;
                 }
-                cells.push(currentCell);
-                result.push(cells);
             }
-            return result;
+            // 最後の残りを格納
+            if (currentCell || row.length > 0) {
+                row.push(currentCell);
+                lines.push(row);
+            }
+            return lines;
         }
 
         // 期限が切れているか判定する関数
@@ -86,7 +105,7 @@
             
             const limitDate = new Date(now.getFullYear(), month - 1, day, hour, minute);
             
-            // 期限が現在の時刻を過ぎていたら「真（期限切れ）」を返す
+            // 期限が現在の時刻を過ぎていたら期限切れ
             return limitDate <= now;
         }
 
@@ -95,7 +114,7 @@
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
                 const csvText = await response.text();
-                const allRows = parseSpreadsheetCSV(csvText);
+                const allRows = robustParseCSV(csvText);
                 
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = '';
@@ -103,13 +122,14 @@
                 // 2行目（インデックス1）から処理
                 for (let i = 1; i < allRows.length; i++) {
                     const currentRow = allRows[i];
-                    if (!currentRow || currentRow.length < 2) continue;
+                    // 列データが足りない、またはタイムスタンプ（A列）が無い場合は飛ばす
+                    if (!currentRow || currentRow.length < 2 || !currentRow[0]) continue;
 
-                    // A列=タイムスタンプ, B列=コピペ本文, C列=チェックボックス
+                    // A列=0:タイムスタンプ, B列=1:コピペ本文, C列=2:チェックボックス
                     const targetText = currentRow[1]; 
                     const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
-                    // 💡 【逮捕済みの自動削除】C列にチェック（TRUE）が入っていれば消す
+                    // 💡 【逮捕済みの自動削除】C列がTRUEなら画面に出さない
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
 
