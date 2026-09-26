@@ -179,11 +179,11 @@
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
-                        <div class="section-title">👤 容疑者等</div>
+                        <div class="section-title">👤 犯人</div>
                         <div class="suspect-text">${data.suspectPart}</div>
-                        <div class="section-title">⚖️ 罪状</div>
+                        <div class="section-title">⚖️ 詳細</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
-                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
+                            <span>詳細を確認 (隠されています)</span> <span>▼</span>
                         </button>
                         <div id="crime-${data.id}" class="toggle-content">${data.crimePart || '・記載なし'}</div>
                     `;
@@ -203,11 +203,11 @@
             if (content.style.display === "block") {
                 content.style.display = "none";
                 btn.style.background = "#252d3d"; btn.style.color = "#a3b3cc";
-                btn.innerHTML = "<span>罪状を確認 (隠されています)</span> <span>▼</span>";
+                btn.innerHTML = "<span>詳細を確認 (隠されています)</span> <span>▼</span>";
             } else {
                 content.style.display = "block";
                 btn.style.background = "#ffcc00"; btn.style.color = "#11141a";
-                btn.innerHTML = "<span>罪状を隠す</span> <span>▲</span>";
+                btn.innerHTML = "<span>詳細を隠す</span> <span>▲</span>";
             }
         }
 
