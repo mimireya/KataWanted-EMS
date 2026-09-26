@@ -2,169 +2,48 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>指名手配リスト</title>
     <style>
-        /* --- 基本のページデザイン --- */
-        body {
-            background-color: #11141a;
-            color: #fff;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-        }
+        body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
+        
+        /* 🔲 サイズ変更用の設定（大：1列、中：2列、小：3列） */
+        #wanted-list { display: grid; gap: 16px; width: 100%; }
+        #wanted-list[data-size="small"] { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+        #wanted-list[data-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
+        #wanted-list[data-size="large"] { grid-template-columns: 1fr; }
 
-        /* --- 🔲 グリッド全体の列数コントロール --- */
-        #wanted-list {
-            display: grid;
-            gap: 16px;
-            width: 100%;
-        }
+        /* 通常カード */
+        .wanted-card { background: #171d26; border: 1px solid #252d3d; border-radius: 8px; padding: 16px; }
+        .wanted-badge { display: inline-block; padding: 4px 8px; background: #ff3333; color: #fff; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 10px; }
+        .text-area { white-space: pre-wrap; font-weight: bold; font-size: 15px; line-height: 1.6; }
 
-        /* 「小」：3列 */
-        #wanted-list[data-size="small"] {
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        }
-
-        /* 「中」：2列（標準） */
-        #wanted-list[data-size="medium"] {
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        }
-
-        /* 「大」：強制的に1列表示にする */
-        #wanted-list[data-size="large"] {
-            grid-template-columns: 1fr;
-        }
-
-        /* --- 基本のカードデザイン --- */
-        .wanted-card {
-            background: #171d26;
-            border: 1px solid #252d3d;
-            border-radius: 8px;
-            position: relative;
-            box-sizing: border-box;
-        }
-
-        /* --- 各サイズごとの文字・余白の定義 --- */
-        .wanted-card[data-size="small"] { padding: 10px; }
-        .wanted-card[data-size="small"] .suspect-text { font-size: 12px; }
-        .wanted-card[data-size="small"] .toggle-content { font-size: 12px; }
-        .wanted-card[data-size="small"] .section-title { font-size: 11px; margin-top: 8px; }
-        .wanted-card[data-size="small"] .limit-time { font-size: 11px; }
-
-        .wanted-card[data-size="medium"] { padding: 16px; }
-        .wanted-card[data-size="medium"] .suspect-text { font-size: 15px; }
-        .wanted-card[data-size="medium"] .toggle-content { font-size: 14px; }
-        .wanted-card[data-size="medium"] .section-title { font-size: 12px; margin-top: 12px; }
-
-        .wanted-card[data-size="large"] { padding: 22px; }
-        .wanted-card[data-size="large"] .suspect-text { font-size: 19px; }
-        .wanted-card[data-size="large"] .toggle-content { font-size: 17px; }
-        .wanted-card[data-size="large"] .section-title { font-size: 14px; margin-top: 16px; }
-
-        /* --- 通常のバッジや装飾 --- */
-        .wanted-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            background: #ff3333;
-            color: #fff;
-            font-weight: bold;
-            font-size: 11px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        .wanted-card.urgent .wanted-badge {
-            background: #ffcc00;
-            color: #11141a;
-        }
-        .section-title {
-            color: #8a99ad;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-        .toggle-btn {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            padding: 8px 12px;
-            background: #252d3d;
-            border: none;
-            color: #a3b3cc;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-        .toggle-content {
-            display: none;
-            margin-top: 10px;
-            padding: 10px;
-            background: #11141a;
-            border-radius: 4px;
-        }
-
-        /* --- 👑 特殊指名手配（無期限）用の特別カードデザイン --- */
-        .wanted-card.indefinite {
-            border: 2px solid #b300ff !important;
-            background: linear-gradient(135deg, #1b1124 0%, #11091a 100%) !important;
-            box-shadow: 0 0 15px rgba(179, 0, 255, 0.2);
-        }
-        .wanted-card.indefinite .wanted-badge {
-            background: linear-gradient(90deg, #b300ff 0%, #d4af37 100%) !important;
-            color: #fff !important;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-        }
+        /* 👑 特殊指名手配（無期限）用の紫デザイン */
+        .wanted-card.special-mode { border: 2px solid #b300ff !important; background: linear-gradient(135deg, #1b1124 0%, #11091a 100%) !important; }
+        .wanted-card.special-mode .wanted-badge { background: linear-gradient(90deg, #b300ff 0%, #d4af37 100%) !important; }
     </style>
 </head>
 <body>
-    <!-- 💡 サイズ変更ボタンを設置するエリア -->
-    <div id="size-controller" style="margin-bottom: 15px; display: flex; gap: 8px; align-items: center;">
-        <span style="font-size: 14px; color: #a3b3cc; font-weight: bold;">🔲 カードの大きさ:</span>
-        <button onclick="changeCardSize('small')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; border-radius: 4px; cursor: pointer; font-size: 13px;">小（複数列）</button>
-        <button onclick="changeCardSize('medium')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; border-radius: 4px; cursor: pointer; font-size: 13px;">中</button>
-        <button onclick="changeCardSize('large')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; border-radius: 4px; cursor: pointer; font-size: 13px;">大（1列表示）</button>
+
+    <!-- 🔲 サイズ変更ボタン -->
+    <div style="margin-bottom: 15px; display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: 14px; color: #a3b3cc;">🔲 カードの大きさ:</span>
+        <button onclick="changeSize('small')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer;">小</button>
+        <button onclick="changeSize('medium')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer;">中</button>
+        <button onclick="changeSize('large')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer;">大</button>
     </div>
 
-    <!-- 💡 指名手配カードが並ぶコンテナ -->
     <div id="wanted-list" data-size="medium"></div>
 
     <script>
-        // ⚠️ ご自身のご利用中のスプレッドシートCSVのURLをここに貼り付けてください
+        // ⚠️ ここにご自身のスプレッドシートのCSV URLを貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
-        let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
-
-        function changeCardSize(size) {
-            currentSize = size;
-            localStorage.setItem('wanted-card-size', size);
-            updateButtonStyles();
-            const container = document.getElementById('wanted-list');
-            if (container) container.setAttribute('data-size', size);
-            const cards = document.querySelectorAll('.wanted-card');
-            cards.forEach(card => card.setAttribute('data-size', size));
+        // サイズ切り替え関数
+        function changeSize(size) {
+            document.getElementById('wanted-list').setAttribute('data-size', size);
         }
 
-        function updateButtonStyles() {
-            const buttons = document.querySelectorAll('#size-controller button');
-            const sizes = ['small', 'medium', 'large'];
-            buttons.forEach((btn, index) => {
-                if (sizes[index] === currentSize) {
-                    btn.style.background = "#ffcc00";
-                    btn.style.color = "#11141a";
-                    btn.style.fontWeight = "bold";
-                } else {
-                    btn.style.background = "#252d3d";
-                    btn.style.color = "#fff";
-                    btn.style.fontWeight = "normal";
-                }
-            });
-        }
-
-        // CSVパース関数
+        // CSVをパースする単純な関数
         function parseCSV(text) {
             return text.split('\n').map(row => {
                 let fields = []; let field = ''; let inQuotes = false;
@@ -178,144 +57,52 @@
             });
         }
 
-        // 💡 期限日時を「09/27 05:41」形式から正確に取得する関数
-        function getLimitDate(text) {
-            if (!text || text.includes('無期限')) return null;
-            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
-            if (!timeMatch) return null;
-            
-            const now = new Date();
-            const month = parseInt(timeMatch[1], 10);
-            const day = parseInt(timeMatch[2], 10);
-            const hour = parseInt(timeMatch[3], 10);
-            const minute = parseInt(timeMatch[4], 10);
-            
-            return new Date(now.getFullYear(), month - 1, day, hour, minute);
-        }
-        async function fetchWantedList() {
+        async function fetchList() {
             try {
-                const forceFreshUrl = SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Math.floor(Date.now() / 1000);
-                const response = await fetch(forceFreshUrl);
+                const response = await fetch(SPREADSHEET_CSV_URL + "?nocache=" + Date.now());
                 const csvText = await response.text();
                 const rows = parseCSV(csvText);
                 const container = document.getElementById('wanted-list');
-                container.innerHTML = ''; 
-                container.setAttribute('data-size', currentSize);
+                container.innerHTML = '';
 
-                const now = new Date(); 
-                let validCards = [];
-
+                // 2行目（i=1）から順番に処理
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
-                    // 💡 A列(タイムスタンプ)とB列(本文)が揃っていない行はスキップ
-                    if (!row || row.length < 2) continue; 
+                    if (!row || row.length < 2) continue;
 
-                    // 💡 【重要】スプシの列設定(A列:row[0], B列:row[1], C列:row[2])に完全修正
-                    const discordText = row[1]; 
-                    const status = row[2] ? row[2].trim().toUpperCase() : ""; 
+                    const text = row[1]; // B列：コピペ本文
+                    const status = row[2] ? row[2].trim().toUpperCase() : ""; // C列：チェックボックス
 
-                    // 💡 【逮捕済みの自動削除】C列にチェック(TRUE)が入っているものは画面に表示せず消す
-                    if (status === "TRUE" || status.includes("逮捕済み")) continue; 
-                    if (!discordText || !discordText.trim()) continue;
+                    // 💡 【逮捕済みの自動削除】C列がTRUEなら画面に出さない
+                    if (status === "TRUE" || status.includes("逮捕済み")) continue;
+                    if (!text || !text.trim()) continue;
 
-                    const isIndefinite = discordText.includes('無期限');
-                    const limitDate = getLimitDate(discordText);
-                    
-                    // 💡 【期限切れの自動削除】期限が過ぎている場合は画面に表示せず消す
-                    if (!isIndefinite && limitDate && limitDate <= now) {
-                        continue; 
-                    }
+                    // 💡 「特殊指名手配」か「無期限」という文字があれば特殊モードにする
+                    const isSpecial = text.includes('特殊指名手配') || text.includes('無期限');
 
-                    // 特殊（無期限）は一番上、それ以外は期限が近い順に並べる
-                    const sortTime = isIndefinite ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
-                    
-                    let isUrgent = false;
-                    if (!isIndefinite && limitDate) {
-                        const diffMs = limitDate.getTime() - now.getTime();
-                        const oneHourMs = 60 * 60 * 1000;
-                        if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
-                    }
-
-                    // ⏱️ 期限表示テキストの整形
-                    let limitTimeStr = "不明";
-                    if (isIndefinite) {
-                        limitTimeStr = "無期限 🕐️";
-                    } else {
-                        const timeMatch = discordText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで"; 
-                    }
-
-                    const lines = discordText.split(/[\r\n]+/);
-                    let suspects = []; let crimes = []; let isCrimeSection = false;
-
-                    lines.forEach(line => {
-                        let trimmed = line.trim(); if (!trimmed) return;
-                        
-                        // 不要なヘッダー・記号を容疑者名から排除
-                        if (trimmed.includes('指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('🕐️')) return;
-
-                        if (trimmed.includes('--- 罪状 ---')) { isCrimeSection = true; }
-                        else if (trimmed.startsWith('・')) {
-                            if (isCrimeSection) { crimes.push(trimmed); } else { suspects.push(trimmed); }
-                        }
-                    });
-
-                    if (suspects.length === 0) suspects.push("記載なし");
-                    let suspectPart = suspects.join('\n');
-                    let crimePart = crimes.join('\n');
-
-                    validCards.push({ id: i, sortTime: sortTime, isUrgent: isUrgent, isIndefinite: isIndefinite, limitTimeStr: limitTimeStr, suspectPart: suspectPart, crimePart: crimePart });
-                }
-
-                validCards.sort((a, b) => a.sortTime - b.sortTime);
-
-                validCards.forEach(data => {
+                    // カードを1枚作成
                     const card = document.createElement('div');
-                    card.className = `wanted-card ${data.isUrgent ? 'urgent' : ''} ${data.isIndefinite ? 'indefinite' : ''}`;
-                    card.setAttribute('data-size', currentSize);
-                    
-                    let badgeText = data.isUrgent ? 'URGENT' : (data.isIndefinite ? '特殊指名手配' : 'WANTED');
-                    let timeDisplayText = data.isIndefinite ? `⏱️ 期限: ${data.limitTimeStr}` : `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : ''}`;
-                    
+                    card.className = `wanted-card ${isSpecial ? 'special-mode' : ''}`;
+
                     card.innerHTML = `
-                        <div class="wanted-badge">${badgeText}</div>
-                        <div class="limit-time">${timeDisplayText}</div>
-                        
-                        <div class="section-title">👤 容疑者等</div>
-                        <div class="suspect-text" style="white-space: pre-wrap; font-weight: bold; color: #fff;">${data.suspectPart}</div>
-                        <div class="section-title">⚖️ 罪状</div>
-                        <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
-                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
-                        </button>
-                        <div id="crime-${data.id}" class="toggle-content" style="white-space: pre-wrap; color: #ffcc00;">${data.crimePart || '記載なし'}</div>
+                        <div class="wanted-badge">${isSpecial ? '特殊指名手配' : 'WANTED'}</div>
+                        <div class="text-area">${text}</div>
                     `;
                     container.appendChild(card);
-                });
+                }
 
                 if (container.innerHTML === '') {
-                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #8a99ad; padding: 40px; font-size: 15px;">現在、有効な指名手配はありません。</div>';
+                    container.innerHTML = '<div style="text-align: center; color: #8a99ad; padding: 40px;">現在、有効な指名手配はありません。</div>';
                 }
             } catch (error) {
                 document.getElementById('wanted-list').innerText = 'データの処理中にエラーが発生しました。';
             }
         }
 
-        function toggleSection(id, btn) {
-            const content = document.getElementById('crime-' + id);
-            if (content.style.display === "block") {
-                content.style.display = "none";
-                btn.style.background = "#252d3d"; btn.style.color = "#a3b3cc";
-                btn.innerHTML = "<span>罪状を確認 (隠されています)</span> <span>▼</span>";
-            } else {
-                content.style.display = "block";
-                btn.style.background = "#ffcc00"; btn.style.color = "#11141a";
-                btn.innerHTML = "<span>罪状を隠す</span> <span>▲</span>";
-            }
-        }
-
-        setInterval(function() { fetchWantedList(); }, 180000);
-        updateButtonStyles();
-        fetchWantedList();
+        // 最初の一回を実行
+        fetchList();
+        // 3分ごとに自動更新
+        setInterval(fetchList, 180000);
     </script>
 </body>
 </html>
