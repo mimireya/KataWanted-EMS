@@ -69,7 +69,6 @@
 
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
-            // 💡 不要なバックスラッシュを修正しました
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             const now = new Date();
@@ -84,6 +83,9 @@
                 const container = document.getElementById('wanted-list');
                 container.innerHTML = '';
 
+                let validCards = [];
+                const now = new Date();
+
                 for (let i = 1; i < allRows.length; i++) {
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
@@ -96,7 +98,6 @@
 
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
-                    const now = new Date();
 
                     if (!isSpecial && limitDate && limitDate <= now) continue;
 
@@ -114,7 +115,7 @@
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
                         if (timeMatch) {
-                            limitTimeStr = timeMatch[0] + " まで" + (isUnder30Min ? " 🚨（残り30分未満！）" : "");
+                            limitTimeStr = timeMatch[1] + " まで" + (isUnder30Min ? " 🚨（残り30分未満！）" : "");
                         }
                     }
 
@@ -135,30 +136,51 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
+                    // 💡 並び替え（ソート）用の基準時間を計算
+                    // 特殊（無期限）は一番上（0）、通常期限は残り時間が短い順、期限不明は一番後ろ
+                    const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
+
+                    // 一旦データを配列に溜める
+                    validCards.push({
+                        id: i,
+                        sortTime: sortTime,
+                        isSpecial: isSpecial,
+                        isUnder30Min: isUnder30Min,
+                        limitTimeStr: limitTimeStr,
+                        suspectPart: suspectPart,
+                        crimePart: crimePart
+                    });
+                }
+
+                // 💡 【期限順に並び替え】数値が小さい（期限が近い）順に並び替える
+                validCards.sort((a, b) => a.sortTime - b.sortTime);
+
+                // 並び替えた順にカードを画面に作り出す
+                validCards.forEach(data => {
                     const cardElement = document.createElement('div');
-                    if (isSpecial) {
+                    if (data.isSpecial) {
                         cardElement.className = "wanted-card special-mode";
-                    } else if (isUnder30Min) {
+                    } else if (data.isUnder30Min) {
                         cardElement.className = "wanted-card alert-mode";
                     } else {
                         cardElement.className = "wanted-card";
                     }
 
-                    const badgeName = isSpecial ? '特殊指名手配' : (isUnder30Min ? '🚨 URGENT' : 'WANTED');
+                    const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
 
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
-                        <div class="limit-time">⏱️ 期限: ${limitTimeStr}</div>
+                        <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
                         <div class="section-title">👤 容疑者等</div>
-                        <div class="suspect-text">${suspectPart}</div>
+                        <div class="suspect-text">${data.suspectPart}</div>
                         <div class="section-title">⚖️ 罪状</div>
-                        <button class="toggle-btn" onclick="toggleSection(${i}, this)">
+                        <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
                             <span>罪状を確認 (隠されています)</span> <span>▼</span>
                         </button>
-                        <div id="crime-${i}" class="toggle-content">${crimePart || '・記載なし'}</div>
+                        <div id="crime-${data.id}" class="toggle-content">${data.crimePart || '・記載なし'}</div>
                     `;
                     container.appendChild(cardElement);
-                }
+                });
 
                 if (container.innerHTML === '') {
                     container.innerHTML = '<div style="text-align: center; color: #8a99ad; padding: 40px; font-size: 15px;">現在、有効な指名手配はありません。</div>';
@@ -186,4 +208,3 @@
     </script>
 </body>
 </html>
-
