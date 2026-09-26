@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Katacity指名手配リスト</title>
+    <title>指名手配リスト</title>
     <style>
         /* --- 基本のページデザイン --- */
         body {
@@ -21,17 +21,17 @@
             width: 100%;
         }
 
-        /* 「小」が選ばれた時：PCなら3列、スマホなら自動縮小 */
+        /* 「小」：3列 */
         #wanted-list[data-size="small"] {
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
 
-        /* 「中」が選ばれた時：PCなら2列（標準） */
+        /* 「中」：2列（標準） */
         #wanted-list[data-size="medium"] {
             grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
         }
 
-        /* 「大」が選ばれた時：強制的に1列表示にする */
+        /* 「大」：1列表示 */
         #wanted-list[data-size="large"] {
             grid-template-columns: 1fr;
         }
@@ -45,22 +45,18 @@
             box-sizing: border-box;
         }
 
-        /* --- 💡 各サイズごとの文字・余白の定義 --- */
-        /* 【小サイズ】 */
+        /* --- 各サイズごとの文字・余白の定義 --- */
         .wanted-card[data-size="small"] { padding: 10px; }
         .wanted-card[data-size="small"] .suspect-text { font-size: 12px; }
         .wanted-card[data-size="small"] .toggle-content { font-size: 12px; }
         .wanted-card[data-size="small"] .section-title { font-size: 11px; margin-top: 8px; }
-        .wanted-card[data-size="small"] .limit-time, 
-        .wanted-card[data-size="small"] .reg-time { font-size: 11px; }
+        .wanted-card[data-size="small"] .limit-time { font-size: 11px; }
 
-        /* 【中サイズ】 */
         .wanted-card[data-size="medium"] { padding: 16px; }
         .wanted-card[data-size="medium"] .suspect-text { font-size: 15px; }
         .wanted-card[data-size="medium"] .toggle-content { font-size: 14px; }
         .wanted-card[data-size="medium"] .section-title { font-size: 12px; margin-top: 12px; }
 
-        /* 【大サイズ】 */
         .wanted-card[data-size="large"] { padding: 22px; }
         .wanted-card[data-size="large"] .suspect-text { font-size: 19px; }
         .wanted-card[data-size="large"] .toggle-content { font-size: 17px; }
@@ -137,10 +133,9 @@
     <div id="wanted-list" data-size="medium"></div>
 
     <script>
-        // 💡 お使いのスプレッドシートCSVのURLをここに貼り付けてください
+        // ⚠️ ご自身のご利用中のスプレッドシートCSVのURLをここに貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
-        // 保存されたサイズを読み込む、またはデフォルトを「中」にする
         let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
 
         function changeCardSize(size) {
@@ -183,11 +178,13 @@
             });
         }
 
-        // 期限日時を計算する関数
+        // 💡 期限日時を安全に計算・抽出する強化版関数
         function getLimitDate(text) {
+            if (text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
             if (!timeMatch) return null;
             const now = new Date();
+            // 月、日、時、分をパースしてDateオブジェクトを作成
             const date = new Date(now.getFullYear(), parseInt(timeMatch[1]) - 1, parseInt(timeMatch[2]), parseInt(timeMatch[3]), parseInt(timeMatch[4]));
             return date;
         }
@@ -208,7 +205,6 @@
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
-                    const timestamp = row[0];   
                     const discordText = row[1]; 
                     const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
@@ -228,6 +224,7 @@
                         if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                     }
 
+                    // 💡 期限表示のテキストの取得方法を修正
                     let limitTimeStr = "不明";
                     if (isIndefinite) {
                         limitTimeStr = "無期限 🕐️";
@@ -252,7 +249,7 @@
                     let suspectPart = suspects.join('\n');
                     let crimePart = crimes.join('\n');
 
-                    validCards.push({ id: i, sortTime: sortTime, isUrgent: isUrgent, isIndefinite: isIndefinite, limitTimeStr: limitTimeStr, timestamp: timestamp, suspectPart: suspectPart, crimePart: crimePart });
+                    validCards.push({ id: i, sortTime: sortTime, isUrgent: isUrgent, isIndefinite: isIndefinite, limitTimeStr: limitTimeStr, suspectPart: suspectPart, crimePart: crimePart });
                 }
 
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
@@ -265,11 +262,12 @@
                     let badgeText = data.isUrgent ? 'URGENT' : (data.isIndefinite ? '特殊指名手配' : 'WANTED');
                     let timeDisplayText = data.isIndefinite ? `⏱️ 期限: ${data.limitTimeStr}` : `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : 'まで'}`;
                     
+                    // 💡 登録日時の表示部分を綺麗に削除しました
                     card.innerHTML = `
                         <div class="wanted-badge">${badgeText}</div>
                         <div class="limit-time">${timeDisplayText}</div>
-                        <div class="reg-time">登録: ${data.timestamp}</div>
-                        <div class="section-title">👤 容疑者</div>
+                        
+                        <div class="section-title">👤 容疑者等</div>
                         <div class="suspect-text" style="white-space: pre-wrap; font-weight: bold; color: #fff;">${data.suspectPart}</div>
                         <div class="section-title">⚖️ 罪状</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
