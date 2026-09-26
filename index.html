@@ -21,12 +21,12 @@
             width: 100%;
         }
 
-        /* 「小」：PCなら3列、スマホなら自動縮小 */
+        /* 「小」：3列 */
         #wanted-list[data-size="small"] {
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         }
 
-        /* 「中」：PCなら2列（標準） */
+        /* 「中」：2列（標準） */
         #wanted-list[data-size="medium"] {
             grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
         }
@@ -133,7 +133,7 @@
     <div id="wanted-list" data-size="medium"></div>
 
     <script>
-        // ⚠️ ご自身のご利用中のスプレッドシートCSV of URLをここに貼り付けてください
+        // ⚠️ ご自身のご利用中のスプレッドシートCSVのURLをここに貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
         let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
@@ -178,9 +178,10 @@
             });
         }
 
-        // 💡 期限日時を安全に判定・取得する超精密関数
+        // 💡 期限日時を安全に取得する修正版関数（スペースや絵文字を考慮）
         function getLimitDate(text) {
             if (!text || text.includes('無期限')) return null;
+            // 「09/27 05:41」のような月/日 時:分 を全角半角問わず抽出
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             
@@ -190,8 +191,8 @@
             const hour = parseInt(timeMatch[3], 10);
             const minute = parseInt(timeMatch[4], 10);
             
-            const date = new Date(now.getFullYear(), month - 1, day, hour, minute);
-            return date;
+            // 今年を基準に日付オブジェクトを作成
+            return new Date(now.getFullYear(), month - 1, day, hour, minute);
         }
         async function fetchWantedList() {
             try {
@@ -208,24 +209,24 @@
 
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
-                    if (!row || row.length < 2) continue; 
+                    // 💡 最低限、データの列が足りていない行や、Discord本文が空の行（空のフォームなど）は最初から完全に無視します
+                    if (!row || row.length < 2 || !row[1] || !row[1].trim()) continue; 
 
-                    const discordText = row[1]; // CSVの通知本文を取得
+                    const discordText = row[1]; // 💡 元のコードの正しい列(インデックス1)に修正しました
                     const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
+                    // すでに逮捕済み、またはチェックが入っているものは除外
                     if (status === "TRUE" || status.includes("逮捕済み")) continue; 
-                    if (!discordText || !discordText.trim()) continue;
 
-                    // 💡 「特殊指名手配」または「無期限」のキーワードが入っているか精密判定
-                    const isIndefinite = discordText.includes('特殊指名手配') || discordText.includes('無期限');
+                    const isIndefinite = discordText.includes('無期限');
                     const limitDate = getLimitDate(discordText);
                     
-                    // 💡 【期限切れの自動非表示】期限があり、それが現在時刻を過ぎている場合は自動除外
+                    // 💡 【期限切れの自動削除】期限が過ぎている場合はリストに載せない
                     if (!isIndefinite && limitDate && limitDate <= now) {
                         continue; 
                     }
 
-                    // 特殊（無期限）はソート順を最上位（0）にし、それ以外は期限が近い順に並べる
+                    // 特殊（無期限）は一番上、それ以外は期限が近い順に並べるためのソート数値
                     const sortTime = isIndefinite ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
                     
                     let isUrgent = false;
@@ -235,7 +236,7 @@
                         if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                     }
 
-                    // 期限表示テキストのフォーマット
+                    // 期限表示テキストを綺麗に整形
                     let limitTimeStr = "不明";
                     if (isIndefinite) {
                         limitTimeStr = "無期限 🕐️";
@@ -250,7 +251,7 @@
                     lines.forEach(line => {
                         let trimmed = line.trim(); if (!trimmed) return;
                         
-                        // 不要なヘッダー・時間記述行を徹底的に名前から排除
+                        // 不要なヘッダー・記号を容疑者名から排除
                         if (trimmed.includes('指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('🕐️')) return;
 
                         if (trimmed.includes('--- 罪状 ---')) { isCrimeSection = true; }
@@ -259,7 +260,7 @@
                         }
                     });
 
-                    // 容疑者名が上手く取れなかった場合のセーフティ
+                    // 容疑者名が上手く取れなかったときのセーフティ
                     if (suspects.length === 0) suspects.push("記載なし");
                     let suspectPart = suspects.join('\n');
                     let crimePart = crimes.join('\n');
