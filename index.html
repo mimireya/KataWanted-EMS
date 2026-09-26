@@ -69,10 +69,11 @@
 
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
-            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2})\:(\d{1,2})/);
+            // 💡 不要なバックスラッシュを修正しました
+            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             const now = new Date();
-            return new Date(2026, parseInt(timeMatch, 10) - 1, parseInt(timeMatch, 10), parseInt(timeMatch, 10), parseInt(timeMatch, 10));
+            return new Date(2026, parseInt(timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
         }
 
         async function fetchList() {
@@ -87,8 +88,8 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow; 
-                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
+                    const targetText = currentRow[1]; 
+                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
@@ -113,7 +114,7 @@
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
                         if (timeMatch) {
-                            limitTimeStr = timeMatch + " まで" + (isUnder30Min ? " 🚨（残り30分未満！）" : "");
+                            limitTimeStr = timeMatch[0] + " まで" + (isUnder30Min ? " 🚨（残り30分未満！）" : "");
                         }
                     }
 
@@ -185,3 +186,4 @@
     </script>
 </body>
 </html>
+
