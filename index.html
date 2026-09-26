@@ -178,17 +178,17 @@
             });
         }
 
-        // 💡 期限日時を「🕐️ 09/27 05:41 まで」という実際の形式から安全に抽出する関数
+        // 💡 期限日時を「09/27 05:41」形式から正確に取得する関数
         function getLimitDate(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             
             const now = new Date();
-            const month = parseInt(timeMatch[10]);
-            const day = parseInt(timeMatch[10]);
-            const hour = parseInt(timeMatch[10]);
-            const minute = parseInt(timeMatch[10]);
+            const month = parseInt(timeMatch[1], 10);
+            const day = parseInt(timeMatch[2], 10);
+            const hour = parseInt(timeMatch[3], 10);
+            const minute = parseInt(timeMatch[4], 10);
             
             return new Date(now.getFullYear(), month - 1, day, hour, minute);
         }
@@ -207,27 +207,26 @@
 
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
-                    // 💡 列が足りていない行はスキップ
+                    // 💡 A列(タイムスタンプ)とB列(本文)が揃っていない行はスキップ
                     if (!row || row.length < 2) continue; 
 
-                    // 💡 【最重要】元のコードと同じ正しい列指定(1番目と2番目)に完全に戻しました
+                    // 💡 【重要】スプシの列設定(A列:row[0], B列:row[1], C列:row[2])に完全修正
                     const discordText = row[1]; 
                     const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
-                    // すでに逮捕済み、またはチェックが入っているものは除外
+                    // 💡 【逮捕済みの自動削除】C列にチェック(TRUE)が入っているものは画面に表示せず消す
                     if (status === "TRUE" || status.includes("逮捕済み")) continue; 
                     if (!discordText || !discordText.trim()) continue;
 
-                    // 💡 「特殊指名手配」または「無期限」のキーワードが入っているか判定
-                    const isIndefinite = discordText.includes('特殊指名手配') || discordText.includes('無期限');
+                    const isIndefinite = discordText.includes('無期限');
                     const limitDate = getLimitDate(discordText);
                     
-                    // 💡 【期限切れの自動非表示】期限があり、それが現在時刻を過ぎている場合は除外
+                    // 💡 【期限切れの自動削除】期限が過ぎている場合は画面に表示せず消す
                     if (!isIndefinite && limitDate && limitDate <= now) {
                         continue; 
                     }
 
-                    // 特殊（無期限）は一番上、それ以外は期限が近い順に並べるためのソート数値
+                    // 特殊（無期限）は一番上、それ以外は期限が近い順に並べる
                     const sortTime = isIndefinite ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
                     
                     let isUrgent = false;
@@ -237,13 +236,13 @@
                         if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                     }
 
-                    // 期限表示テキストのフォーマット
+                    // ⏱️ 期限表示テキストの整形
                     let limitTimeStr = "不明";
                     if (isIndefinite) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = discordText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[0] + " まで"; 
+                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで"; 
                     }
 
                     const lines = discordText.split(/[\r\n]+/);
@@ -261,7 +260,6 @@
                         }
                     });
 
-                    // 容疑者名が上手く取れなかった場合のセーフティ
                     if (suspects.length === 0) suspects.push("記載なし");
                     let suspectPart = suspects.join('\n');
                     let crimePart = crimes.join('\n');
@@ -277,7 +275,7 @@
                     card.setAttribute('data-size', currentSize);
                     
                     let badgeText = data.isUrgent ? 'URGENT' : (data.isIndefinite ? '特殊指名手配' : 'WANTED');
-                    let timeDisplayText = `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : ''}`;
+                    let timeDisplayText = data.isIndefinite ? `⏱️ 期限: ${data.limitTimeStr}` : `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : ''}`;
                     
                     card.innerHTML = `
                         <div class="wanted-badge">${badgeText}</div>
