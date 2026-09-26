@@ -72,7 +72,7 @@
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             const now = new Date();
-            return new Date(2026, parseInt(timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
+            return new Date(2026, parseInt(timeMatch, 10) - 1, parseInt(timeMatch, 10), parseInt(timeMatch, 10), parseInt(timeMatch, 10));
         }
 
         async function fetchList() {
@@ -84,22 +84,33 @@
                 container.innerHTML = '';
 
                 let validCards = [];
+                // 💡 すでに読み込んだ文章を記憶して重複を弾くための記録部屋
+                let processedTexts = new Set(); 
                 const now = new Date();
 
                 for (let i = 1; i < allRows.length; i++) {
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow[1]; 
-                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
+                    const targetText = currentRow[1]; // B列：コピペ本文
+                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; // C列：チェックボックス
 
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
+
+                    // 💡 【重複チェック機能】空白や細かいスペースを無視して、中身が全く同じ文章がすでに登録されていたらスキップする
+                    const standardizedText = targetText.replace(/\s+/g, '');
+                    if (processedTexts.has(standardizedText)) {
+                        continue; // すでに同じカードが作られているので、この行は無視する
+                    }
 
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
                     if (!isSpecial && limitDate && limitDate <= now) continue;
+
+                    // 重複していないことが確定したので、記憶部屋に登録
+                    processedTexts.add(standardizedText);
 
                     let isUnder30Min = false;
                     if (!isSpecial && limitDate) {
@@ -136,11 +147,9 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
-                    // 💡 並び替え（ソート）用の基準時間を計算
-                    // 特殊（無期限）は一番上（0）、通常期限は残り時間が短い順、期限不明は一番後ろ
+                    // 並び替え用の基準時間を計算
                     const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
 
-                    // 一旦データを配列に溜める
                     validCards.push({
                         id: i,
                         sortTime: sortTime,
@@ -152,10 +161,9 @@
                     });
                 }
 
-                // 💡 【期限順に並び替え】数値が小さい（期限が近い）順に並び替える
+                // 期限が近い順に並び替え
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
 
-                // 並び替えた順にカードを画面に作り出す
                 validCards.forEach(data => {
                     const cardElement = document.createElement('div');
                     if (data.isSpecial) {
@@ -171,11 +179,11 @@
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
-                        <div class="section-title">👤 犯人</div>
+                        <div class="section-title">👤 容疑者等</div>
                         <div class="suspect-text">${data.suspectPart}</div>
-                        <div class="section-title">⚖️ 詳細</div>
+                        <div class="section-title">⚖️ 罪状</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
-                            <span>詳細を確認 (隠されています)</span> <span>▼</span>
+                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
                         </button>
                         <div id="crime-${data.id}" class="toggle-content">${data.crimePart || '・記載なし'}</div>
                     `;
