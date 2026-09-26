@@ -56,6 +56,23 @@
             return lines;
         }
 
+        // 💡 期限切れを自動で判定する関数
+        function isExpired(text) {
+            if (!text || text.includes('無期限')) return false; 
+            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+            if (!timeMatch) return false;
+            
+            const now = new Date();
+            const month = parseInt(timeMatch[1], 10);
+            const day = parseInt(timeMatch[2], 10);
+            const hour = parseInt(timeMatch[3], 10);
+            const minute = parseInt(timeMatch[4], 10);
+            
+            // 2026年の日付オブジェクトを作成
+            const limitDate = new Date(2026, month - 1, day, hour, minute);
+            return limitDate <= now;
+        }
+
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
@@ -71,8 +88,12 @@
                     const targetText = currentRow[1]; 
                     const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
+                    // 💡 【逮捕済みの削除】C列がTRUEなら消す
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
+
+                    // 💡 【期限切れの自動非表示】期限が現在時刻を過ぎていたら非表示（消す）
+                    if (isExpired(targetText)) continue;
 
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
 
@@ -80,7 +101,6 @@
                     if (isSpecial) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
-                        // 💡 タイポ（書き間違い）を完全に修正
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
                         limitTimeStr = timeMatch ? timeMatch[0] + " まで" : "不明";
                     }
