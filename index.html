@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KataCity指名手配リスト</title>
+    <title>指名手配リスト</title>
     <style>
         /* --- 基本のページデザイン --- */
         body {
@@ -164,7 +164,7 @@
             });
         }
 
-        // 簡易CSVパース関数
+        // CSVパース関数
         function parseCSV(text) {
             return text.split('\n').map(row => {
                 let fields = []; let field = ''; let inQuotes = false;
@@ -178,14 +178,21 @@
             });
         }
 
-        // 💡 期限日時を安全に計算・抽出する強化版関数
+        // 💡 期限日時を安全に判定・取得する修正版関数
         function getLimitDate(text) {
-            if (text.includes('無期限')) return null;
-            const timeMatch = text.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+            if (!text || text.includes('無期限')) return null;
+            // 「MM/DD HH:MM」の形式を正確に探します
+            const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
+            
             const now = new Date();
-            // 月、日、時、分をパースしてDateオブジェクトを作成
-            const date = new Date(now.getFullYear(), parseInt(timeMatch[1]) - 1, parseInt(timeMatch[2]), parseInt(timeMatch[3]), parseInt(timeMatch[4]));
+            const month = parseInt(timeMatch[1], 10);
+            const day = parseInt(timeMatch[2], 10);
+            const hour = parseInt(timeMatch[3], 10);
+            const minute = parseInt(timeMatch[4], 10);
+            
+            // 現在の西暦を基準にして日付オブジェクトを作成
+            const date = new Date(now.getFullYear(), month - 1, day, hour, minute);
             return date;
         }
         async function fetchWantedList() {
@@ -205,6 +212,7 @@
                     const row = rows[i];
                     if (!row || row.length < 2) continue; 
 
+                    // 💡 CSVの列番号(インデックス)を元の正しい設定に戻しました
                     const discordText = row[1]; 
                     const status = row[2] ? row[2].trim().toUpperCase() : ""; 
 
@@ -213,7 +221,11 @@
 
                     const isIndefinite = discordText.includes('無期限');
                     const limitDate = getLimitDate(discordText);
-                    if (!isIndefinite && limitDate && limitDate <= now) continue; 
+                    
+                    // 💡 【期限切れの自動非表示】期限が現在時刻を過ぎている場合はリストに入れない（画面から消す）
+                    if (!isIndefinite && limitDate && limitDate <= now) {
+                        continue; 
+                    }
 
                     const sortTime = isIndefinite ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
                     
@@ -224,12 +236,11 @@
                         if (diffMs > 0 && diffMs < oneHourMs) isUrgent = true; 
                     }
 
-                    // 💡 期限表示のテキストの取得方法を修正
                     let limitTimeStr = "不明";
                     if (isIndefinite) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
-                        const timeMatch = discordText.match(/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/);
+                        const timeMatch = discordText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
                         if (timeMatch) limitTimeStr = timeMatch[0]; 
                     }
 
@@ -262,12 +273,11 @@
                     let badgeText = data.isUrgent ? 'URGENT' : (data.isIndefinite ? '特殊指名手配' : 'WANTED');
                     let timeDisplayText = data.isIndefinite ? `⏱️ 期限: ${data.limitTimeStr}` : `⏱️ 期限: ${data.limitTimeStr} ${data.isUrgent ? '（残り1時間未満！）' : 'まで'}`;
                     
-                    // 💡 登録日時の表示部分を綺麗に削除しました
                     card.innerHTML = `
                         <div class="wanted-badge">${badgeText}</div>
                         <div class="limit-time">${timeDisplayText}</div>
                         
-                        <div class="section-title">👤 容疑者</div>
+                        <div class="section-title">👤 容疑者等</div>
                         <div class="suspect-text" style="white-space: pre-wrap; font-weight: bold; color: #fff;">${data.suspectPart}</div>
                         <div class="section-title">⚖️ 罪状</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
