@@ -52,7 +52,6 @@
 
     <!-- コントロールパネル -->
     <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #171d26; padding: 12px; border-radius: 6px; border: 1px solid #252d3d;">
-        <!-- 🔲 サイズ変更ボタン -->
         <div style="display: flex; gap: 6px; align-items: center;">
             <span style="font-size: 13px; color: #a3b3cc; font-weight: bold;">🔲 サイズ:</span>
             <button onclick="changeSize('mobile')" id="btn-mobile" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">📱スマホ</button>
@@ -61,7 +60,6 @@
             <button onclick="changeSize('large')" id="btn-large" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">大</button>
         </div>
 
-        <!-- 👤 表示切り替えボタン -->
         <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
             <span style="font-size: 13px; color: #a3b3cc; font-weight: bold;">👁️ 表示モード:</span>
             <button onclick="toggleDisplayMode()" id="btn-mode-toggle" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">通常表示</button>
@@ -74,11 +72,9 @@
         // ⚠️ ここにご自身のGoogleスプレッドシートのCSV URLを確実に貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
-        // 各自のブラウザ環境の保存状態を読み込む
         let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
         let isNameOnly = localStorage.getItem('wanted-name-only') === 'true';
 
-        // サイズ切り替え
         function changeSize(size) {
             currentSize = size;
             localStorage.setItem('wanted-card-size', size);
@@ -86,28 +82,12 @@
             updateButtonStyles();
         }
 
-        // 名前のみ表示モードの切り替え
         function toggleDisplayMode() {
             isNameOnly = !isNameOnly;
             localStorage.setItem('wanted-name-only', isNameOnly);
-            
-            const container = document.getElementById('wanted-list');
-            const toggleBtn = document.getElementById('btn-mode-toggle');
-            
-            if (isNameOnly) {
-                container.classList.add('name-only-mode');
-                toggleBtn.textContent = "👤 名前のみ";
-                toggleBtn.style.background = "#ffcc00";
-                toggleBtn.style.color = "#11141a";
-            } else {
-                container.classList.remove('name-only-mode');
-                toggleBtn.textContent = "📋 通常表示";
-                toggleBtn.style.background = "#252d3d";
-                toggleBtn.style.color = "#fff";
-            }
+            updateButtonStyles();
         }
 
-        // 各ボタンの選択状態（黄色）を更新する
         function updateButtonStyles() {
             const sizes = ['mobile', 'small', 'medium', 'large'];
             sizes.forEach(s => {
@@ -123,14 +103,16 @@
 
             const container = document.getElementById('wanted-list');
             const toggleBtn = document.getElementById('btn-mode-toggle');
-            if (isNameOnly) {
-                container.classList.add('name-only-mode');
-                toggleBtn.textContent = "👤 名前のみ";
-                toggleBtn.style.background = "#ffcc00"; toggleBtn.style.color = "#11141a";
-            } else {
-                container.classList.remove('name-only-mode');
-                toggleBtn.textContent = "📋 通常表示";
-                toggleBtn.style.background = "#252d3d"; toggleBtn.style.color = "#fff";
+            if (container && toggleBtn) {
+                if (isNameOnly) {
+                    container.classList.add('name-only-mode');
+                    toggleBtn.textContent = "👤 名前のみ";
+                    toggleBtn.style.background = "#ffcc00"; toggleBtn.style.color = "#11141a";
+                } else {
+                    container.classList.remove('name-only-mode');
+                    toggleBtn.textContent = "📋 通常表示";
+                    toggleBtn.style.background = "#252d3d"; toggleBtn.style.color = "#fff";
+                }
             }
         }
 
@@ -151,12 +133,21 @@
             return lines;
         }
 
+        // 💡 【大修正】クラッシュを引き起こしていた日付パースを完全に修正
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
-            return new Date(2026, parseInt(timeMatch, 10) - 1, parseInt(timeMatch, 10), parseInt(timeMatch, 10), parseInt(timeMatch, 10));
+            
+            // timeMatch[0]ではなく、マッチした各パーツ（[1]=月, [2]=日...）を正確にパース
+            const month = parseInt(timeMatch[1], 10);
+            const day = parseInt(timeMatch[2], 10);
+            const hour = parseInt(timeMatch[3], 10);
+            const minute = parseInt(timeMatch[4], 10);
+            
+            return new Date(2026, month - 1, day, hour, minute);
         }
+
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
@@ -175,8 +166,8 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow; 
-                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
+                    const targetText = currentRow[1]; 
+                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
@@ -186,14 +177,13 @@
 
                     if (!isSpecial && limitDate && limitDate <= now) continue;
 
-                    // 💡 【修正】エラーの原因だったテキスト結合処理を安全な方法に変更
                     let limitTimeStr = "不明";
                     if (isSpecial) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch && timeMatch) {
-                            limitTimeStr = timeMatch + " まで";
+                        if (timeMatch && timeMatch[0]) {
+                            limitTimeStr = timeMatch[0] + " まで";
                         }
                     }
 
