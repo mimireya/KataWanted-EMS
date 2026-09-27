@@ -2,13 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Katacity指名手配リスト</title>
+    <title>KataCity指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
         
         /* 🔲 各自の環境で並びを変えられる設定 */
-        #wanted-list[data-size="mobile"] { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; } /* 📱 スマホサイズ */
+        #wanted-list[data-size="mobile"] { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; } 
         #wanted-list[data-size="small"] { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
         #wanted-list[data-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
         #wanted-list[data-size="large"] { grid-template-columns: 1fr; }
@@ -35,7 +35,7 @@
             100% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
         }
 
-        /* 💡 【追加】「名前のみ表示」がONの時に、期限と罪状セクションを非表示にするルール */
+        /* 💡 「名前のみ表示」がONの時に、期限と罪状セクションを非表示にするルール */
         #wanted-list.name-only-mode .limit-time,
         #wanted-list.name-only-mode .wanted-badge,
         #wanted-list.name-only-mode .section-title,
@@ -186,12 +186,15 @@
 
                     if (!isSpecial && limitDate && limitDate <= now) continue;
 
+                    // 💡 【修正】エラーの原因だったテキスト結合処理を安全な方法に変更
                     let limitTimeStr = "不明";
                     if (isSpecial) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch + " まで";
+                        if (timeMatch && timeMatch) {
+                            limitTimeStr = timeMatch + " まで";
+                        }
                     }
 
                     const lines = targetText.split(/[\r\n]+/);
@@ -211,6 +214,7 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
+                    // 安全な重複チェックキー
                     const uniqueKey = suspectPart.replace(/\s+/g, '') + limitTimeStr.replace(/\s+/g, '');
                     if (processedKeys.has(uniqueKey)) continue; 
                     processedKeys.add(uniqueKey);
@@ -246,11 +250,11 @@
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
-                        <div class="section-title">👤 容疑者等</div>
+                        <div class="section-title">👤 犯人</div>
                         <div class="suspect-text">${data.suspectPart}</div>
-                        <div class="section-title">⚖️ 罪状</div>
+                        <div class="section-title">⚖️ 詳細</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
-                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
+                            <span>詳細を確認 (隠されています)</span> <span>▼</span>
                         </button>
                         <div id="crime-${data.id}" class="toggle-content">${data.crimePart || '・記載なし'}</div>
                     `;
@@ -270,11 +274,11 @@
             if (content.style.display === "block") {
                 content.style.display = "none";
                 btn.style.background = "#252d3d"; btn.style.color = "#a3b3cc";
-                btn.innerHTML = "<span>罪状を確認 (隠されています)</span> <span>▼</span>";
+                btn.innerHTML = "<span>詳細を確認 (隠されています)</span> <span>▼</span>";
             } else {
                 content.style.display = "block";
                 btn.style.background = "#ffcc00"; btn.style.color = "#11141a";
-                btn.innerHTML = "<span>罪状を隠す</span> <span>▲</span>";
+                btn.innerHTML = "<span>詳細を隠す</span> <span>▲</span>";
             }
         }
 
