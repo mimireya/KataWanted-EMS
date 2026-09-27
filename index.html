@@ -2,13 +2,17 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>KataCity指名手配リスト</title>
+    <title>Katacity指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
+        
+        /* 🔲 各自の環境で並びを変えられる設定 */
+        #wanted-list[data-size="mobile"] { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; } /* 📱 スマホサイズ */
         #wanted-list[data-size="small"] { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
         #wanted-list[data-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
         #wanted-list[data-size="large"] { grid-template-columns: 1fr; }
+        
         .wanted-card { background: #171d26; border: 1px solid #252d3d; border-radius: 8px; padding: 16px; box-sizing: border-box; transition: all 0.3s ease; }
         .wanted-badge { display: inline-block; padding: 4px 8px; background: #ff3333; color: #fff; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 12px; }
         .limit-time { font-size: 14px; color: #ffcc00; font-weight: bold; margin-bottom: 12px; }
@@ -21,7 +25,7 @@
         .wanted-card.special-mode { border: 2px solid #b300ff !important; background: linear-gradient(135deg, #1b1124 0%, #11091a 100%) !important; box-shadow: 0 0 15px rgba(179, 0, 255, 0.2); }
         .wanted-card.special-mode .wanted-badge { background: linear-gradient(90deg, #b300ff 0%, #d4af37 100%) !important; }
 
-        /* 🚨 【修正】残り30分未満の警告カードデザイン（柔らかいオレンジ色に点滅） */
+        /* 🚨 残り30分未満の警告カードデザイン（柔らかいオレンジ色に点滅） */
         .wanted-card.alert-mode { border: 2px solid #ff9900 !important; box-shadow: 0 0 15px rgba(255, 153, 0, 0.4); animation: pulseAlert 2.5s infinite; }
         .wanted-card.alert-mode .wanted-badge { background: #ff9900 !important; color: #11141a !important; }
         .wanted-card.alert-mode .limit-time { color: #ff9900 !important; }
@@ -30,24 +34,104 @@
             50% { box-shadow: 0 0 4px rgba(255, 153, 0, 0.1); }
             100% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
         }
+
+        /* 💡 【追加】「名前のみ表示」がONの時に、期限と罪状セクションを非表示にするルール */
+        #wanted-list.name-only-mode .limit-time,
+        #wanted-list.name-only-mode .wanted-badge,
+        #wanted-list.name-only-mode .section-title,
+        #wanted-list.name-only-mode .toggle-btn,
+        #wanted-list.name-only-mode .toggle-content {
+            display: none !important;
+        }
+        #wanted-list.name-only-mode .wanted-card {
+            padding: 12px;
+        }
     </style>
 </head>
 <body>
 
-    <div style="margin-bottom: 15px; display: flex; gap: 8px; align-items: center;">
-        <span style="font-size: 14px; color: #a3b3cc; font-weight: bold;">🔲 カードの大きさ:</span>
-        <button onclick="changeSize('small')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px;">小</button>
-        <button onclick="changeSize('medium')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px;">中</button>
-        <button onclick="changeSize('large')" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px;">大</button>
+    <!-- コントロールパネル -->
+    <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #171d26; padding: 12px; border-radius: 6px; border: 1px solid #252d3d;">
+        <!-- 🔲 サイズ変更ボタン -->
+        <div style="display: flex; gap: 6px; align-items: center;">
+            <span style="font-size: 13px; color: #a3b3cc; font-weight: bold;">🔲 サイズ:</span>
+            <button onclick="changeSize('mobile')" id="btn-mobile" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">📱スマホ</button>
+            <button onclick="changeSize('small')" id="btn-small" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">小</button>
+            <button onclick="changeSize('medium')" id="btn-medium" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">中</button>
+            <button onclick="changeSize('large')" id="btn-large" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">大</button>
+        </div>
+
+        <!-- 👤 表示切り替えボタン -->
+        <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
+            <span style="font-size: 13px; color: #a3b3cc; font-weight: bold;">👁️ 表示モード:</span>
+            <button onclick="toggleDisplayMode()" id="btn-mode-toggle" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">通常表示</button>
+        </div>
     </div>
 
     <div id="wanted-list" data-size="medium"></div>
+
     <script>
         // ⚠️ ここにご自身のGoogleスプレッドシートのCSV URLを確実に貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
+        // 各自のブラウザ環境の保存状態を読み込む
+        let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
+        let isNameOnly = localStorage.getItem('wanted-name-only') === 'true';
+
+        // サイズ切り替え
         function changeSize(size) {
+            currentSize = size;
+            localStorage.setItem('wanted-card-size', size);
             document.getElementById('wanted-list').setAttribute('data-size', size);
+            updateButtonStyles();
+        }
+
+        // 名前のみ表示モードの切り替え
+        function toggleDisplayMode() {
+            isNameOnly = !isNameOnly;
+            localStorage.setItem('wanted-name-only', isNameOnly);
+            
+            const container = document.getElementById('wanted-list');
+            const toggleBtn = document.getElementById('btn-mode-toggle');
+            
+            if (isNameOnly) {
+                container.classList.add('name-only-mode');
+                toggleBtn.textContent = "👤 名前のみ";
+                toggleBtn.style.background = "#ffcc00";
+                toggleBtn.style.color = "#11141a";
+            } else {
+                container.classList.remove('name-only-mode');
+                toggleBtn.textContent = "📋 通常表示";
+                toggleBtn.style.background = "#252d3d";
+                toggleBtn.style.color = "#fff";
+            }
+        }
+
+        // 各ボタンの選択状態（黄色）を更新する
+        function updateButtonStyles() {
+            const sizes = ['mobile', 'small', 'medium', 'large'];
+            sizes.forEach(s => {
+                const btn = document.getElementById('btn-' + s);
+                if (btn) {
+                    if (s === currentSize) {
+                        btn.style.background = "#ffcc00"; btn.style.color = "#11141a"; btn.style.fontWeight = "bold";
+                    } else {
+                        btn.style.background = "#252d3d"; btn.style.color = "#fff"; btn.style.fontWeight = "normal";
+                    }
+                }
+            });
+
+            const container = document.getElementById('wanted-list');
+            const toggleBtn = document.getElementById('btn-mode-toggle');
+            if (isNameOnly) {
+                container.classList.add('name-only-mode');
+                toggleBtn.textContent = "👤 名前のみ";
+                toggleBtn.style.background = "#ffcc00"; toggleBtn.style.color = "#11141a";
+            } else {
+                container.classList.remove('name-only-mode');
+                toggleBtn.textContent = "📋 通常表示";
+                toggleBtn.style.background = "#252d3d"; toggleBtn.style.color = "#fff";
+            }
         }
 
         function robustParseCSV(text) {
@@ -67,21 +151,20 @@
             return lines;
         }
 
-        // 💡 クラッシュの原因になっていたパース処理を完全に修正
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
-            const now = new Date();
-            return new Date(2026, parseInt(timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
+            return new Date(2026, parseInt(timeMatch, 10) - 1, parseInt(timeMatch, 10), parseInt(timeMatch, 10), parseInt(timeMatch, 10));
         }
-
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
                 const csvText = await response.text();
                 const allRows = robustParseCSV(csvText);
                 const container = document.getElementById('wanted-list');
+                
+                container.setAttribute('data-size', currentSize);
                 container.innerHTML = '';
 
                 let validCards = [];
@@ -92,8 +175,8 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow[1]; // B列：コピペ本文
-                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; // C列：チェックボックス
+                    const targetText = currentRow; 
+                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
 
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
                     if (!targetText || !targetText.trim()) continue;
@@ -101,7 +184,6 @@
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
-                    // 💡 【期限切れの自動削除機能】これで正常に動くようになります
                     if (!isSpecial && limitDate && limitDate <= now) continue;
 
                     let limitTimeStr = "不明";
@@ -109,7 +191,7 @@
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで";
+                        if (timeMatch) limitTimeStr = timeMatch + " まで";
                     }
 
                     const lines = targetText.split(/[\r\n]+/);
@@ -129,19 +211,14 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
-                    // 💡 安全な重複チェックキー
                     const uniqueKey = suspectPart.replace(/\s+/g, '') + limitTimeStr.replace(/\s+/g, '');
-                    if (processedKeys.has(uniqueKey)) {
-                        continue; 
-                    }
+                    if (processedKeys.has(uniqueKey)) continue; 
                     processedKeys.add(uniqueKey);
 
                     let isUnder30Min = false;
                     if (!isSpecial && limitDate) {
                         const diffMs = limitDate.getTime() - now.getTime();
-                        if (diffMs > 0 && diffMs < 30 * 60 * 1000) {
-                            isUnder30Min = true;
-                        }
+                        if (diffMs > 0 && diffMs < 30 * 60 * 1000) isUnder30Min = true;
                     }
 
                     if (!isSpecial && isUnder30Min) {
@@ -151,13 +228,8 @@
                     const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
 
                     validCards.push({
-                        id: i,
-                        sortTime: sortTime,
-                        isSpecial: isSpecial,
-                        isUnder30Min: isUnder30Min,
-                        limitTimeStr: limitTimeStr,
-                        suspectPart: suspectPart,
-                        crimePart: crimePart
+                        id: i, sortTime: sortTime, isSpecial: isSpecial, isUnder30Min: isUnder30Min,
+                        limitTimeStr: limitTimeStr, suspectPart: suspectPart, crimePart: crimePart
                     });
                 }
 
@@ -165,24 +237,20 @@
 
                 validCards.forEach(data => {
                     const cardElement = document.createElement('div');
-                    if (data.isSpecial) {
-                        cardElement.className = "wanted-card special-mode";
-                    } else if (data.isUnder30Min) {
-                        cardElement.className = "wanted-card alert-mode";
-                    } else {
-                        cardElement.className = "wanted-card";
-                    }
+                    if (data.isSpecial) { cardElement.className = "wanted-card special-mode"; }
+                    else if (data.isUnder30Min) { cardElement.className = "wanted-card alert-mode"; }
+                    else { cardElement.className = "wanted-card"; }
 
                     const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
 
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
-                        <div class="section-title">👤 犯人</div>
+                        <div class="section-title">👤 容疑者等</div>
                         <div class="suspect-text">${data.suspectPart}</div>
-                        <div class="section-title">⚖️ 詳細</div>
+                        <div class="section-title">⚖️ 罪状</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
-                            <span>詳細を確認 (隠されています)</span> <span>▼</span>
+                            <span>罪状を確認 (隠されています)</span> <span>▼</span>
                         </button>
                         <div id="crime-${data.id}" class="toggle-content">${data.crimePart || '・記載なし'}</div>
                     `;
@@ -190,7 +258,7 @@
                 });
 
                 if (container.innerHTML === '') {
-                    container.innerHTML = '<div style="text-align: center; color: #8a99ad; padding: 40px; font-size: 15px;">現在、有効な指名手配はありません。</div>';
+                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #8a99ad; padding: 40px; font-size: 15px;">現在、有効な指名手配はありません。</div>';
                 }
             } catch (error) {
                 document.getElementById('wanted-list').innerText = 'データの処理中にエラーが発生しました。';
@@ -202,14 +270,15 @@
             if (content.style.display === "block") {
                 content.style.display = "none";
                 btn.style.background = "#252d3d"; btn.style.color = "#a3b3cc";
-                btn.innerHTML = "<span>詳細を確認 (隠されています)</span> <span>▼</span>";
+                btn.innerHTML = "<span>罪状を確認 (隠されています)</span> <span>▼</span>";
             } else {
                 content.style.display = "block";
                 btn.style.background = "#ffcc00"; btn.style.color = "#11141a";
-                btn.innerHTML = "<span>詳細を隠す</span> <span>▲</span>";
+                btn.innerHTML = "<span>罪状を隠す</span> <span>▲</span>";
             }
         }
 
+        updateButtonStyles();
         fetchList();
         setInterval(fetchList, 180000);
     </script>
