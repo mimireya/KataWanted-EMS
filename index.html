@@ -80,11 +80,12 @@
     <script>
         // ⚠️ ここにご自身のGoogleスプレッドシートのCSV URLを確実に貼り付けてください
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
+    <script>
+        // ⚠️ ここにご自身のGoogleスプレッドシートのCSV URLを確実に貼り付けてください
+        const SPREADSHEET_CSV_URL = "ここにCSVのURLを貼り付けてください";
 
         let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
         let isNameOnly = localStorage.getItem('wanted-name-only') === 'true';
-
-        // 💡 個別逮捕（非表示）状態を記憶するリスト
         let hiddenSuspects = JSON.parse(localStorage.getItem('hidden-suspects') || '[]');
 
         function changeSize(size) {
@@ -149,25 +150,22 @@
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
-            return new Date(2026, parseInt(timeMatch[10] ? timeMatch[1] : timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
+            return new Date(2026, parseInt(timeMatch, 10) - 1, parseInt(timeMatch, 10), parseInt(timeMatch, 10), parseInt(timeMatch, 10));
         }
-        // 💡 名前の横の「済」ボタンを押したときの処理
+
         function hideSingleSuspect(uniqueKey, originalLine, cardId) {
             if (!hiddenSuspects.includes(uniqueKey)) {
                 hiddenSuspects.push(uniqueKey);
                 localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
-                fetchList(); // 画面を再リフレッシュ
+                fetchList();
             }
         }
 
-        // 💡 復活ボタンを押して名前を元に戻す処理
         function resetCardSuspects(cardId) {
-            // このカードに含まれる非表示データを一括復旧
             hiddenSuspects = hiddenSuspects.filter(key => !key.startsWith(cardId + "-"));
             localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
             fetchList();
         }
-
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
@@ -185,8 +183,8 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow[1]; 
-                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
+                    const targetText = currentRow; 
+                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
 
                     if (!targetText || !targetText.trim()) continue;
 
@@ -195,9 +193,15 @@
 
                     lines.forEach(line => {
                         let trimmed = line.trim();
-                        if (!trimmed || trimmed.includes('指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('---')) return;
-                        if (trimmed.includes('--- 罪状 ---')) { isCrimeSection = true; } 
-                        else if (trimmed.startsWith('・')) {
+                        if (!trimmed) return;
+                        if (trimmed === '指名手配' || trimmed.includes('特殊指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('🕐️') || trimmed.includes('📢')) return;
+
+                        if (trimmed.includes('罪状')) {
+                            isCrimeSection = true;
+                            return;
+                        }
+
+                        if (trimmed.startsWith('・')) {
                             if (isCrimeSection) { crimes.push(trimmed); } else { suspects.push(trimmed); }
                         } else {
                             if (isCrimeSection) { crimes.push("・" + trimmed); } else { suspects.push("・" + trimmed); }
@@ -225,7 +229,7 @@
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで";
+                        if (timeMatch) limitTimeStr = timeMatch + " まで";
                     }
 
                     let isUnder30Min = false;
@@ -250,7 +254,6 @@
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
 
                 validCards.forEach(data => {
-                    // 非表示にされた名前をフィルタリングして除外する
                     let visibleSuspectRowsHtml = '';
                     let hiddenCount = 0;
 
@@ -268,7 +271,6 @@
                         }
                     });
 
-                    // カード内の犯人が全員個別消し込みされたら、カード自体を非表示にする
                     if (hiddenCount > 0 && hiddenCount === data.suspectList.length) return;
 
                     const cardElement = document.createElement('div');
@@ -277,8 +279,6 @@
                     else { cardElement.className = "wanted-card"; }
 
                     const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
-                    
-                    // 🔄 もし消えている名前があれば、復活ボタンを表示
                     const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${data.id})">🔄 ${hiddenCount}名非表示中 [元に戻す]</button>` : '';
 
                     cardElement.innerHTML = `
