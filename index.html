@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>指名手配リスト</title>
+    <title>KataCity指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
@@ -43,9 +43,7 @@
         #wanted-list.name-only-mode .toggle-content {
             display: none !important;
         }
-        #wanted-list.name-only-mode .wanted-card {
-            padding: 12px;
-        }
+        #wanted-list.name-only-mode .wanted-card { padding: 12px; }
     </style>
 </head>
 <body>
@@ -57,7 +55,7 @@
             <button onclick="changeSize('mobile')" id="btn-mobile" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">📱スマホ</button>
             <button onclick="changeSize('small')" id="btn-small" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">小</button>
             <button onclick="changeSize('medium')" id="btn-medium" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">中</button>
-            <button onclick="changeSize('large')" id="btn-large" style="padding: 6px 10px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">大</button>
+            <button onclick="changeSize('large')" id="btn-large" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px;">大</button>
         </div>
 
         <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
@@ -137,7 +135,7 @@
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
-            return new Date(2026, parseInt(timeMatch[10], 10) - 1, parseInt(timeMatch[10], 10), parseInt(timeMatch[10], 10), parseInt(timeMatch[10], 10));
+            return new Date(2026, parseInt(timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
         }
 
         async function fetchList() {
@@ -157,37 +155,12 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow; 
-                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
+                    const targetText = currentRow[1]; 
+                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
-                    if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) {
-                        const tempLines = targetText.split(/[\r\n]+/);
-                        let tempSuspects = [];
-                        tempLines.forEach(l => {
-                            let t = l.trim();
-                            if (t && !t.includes('指名手配') && !t.includes('無期限') && !t.includes('まで') && !t.includes('---')) {
-                                tempSuspects.push(t.replace('・', ''));
-                            }
-                        });
-                        const nameKey = tempSuspects.join('').replace(/\s+/g, '');
-                        if (nameKey) delete latestCardsMap[nameKey];
-                        continue;
-                    }
                     if (!targetText || !targetText.trim()) continue;
 
-                    const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
-                    const limitDate = parseLimitDateObj(targetText);
-
-                    if (!isSpecial && limitDate && limitDate <= now) continue;
-
-                    let limitTimeStr = "不明";
-                    if (isSpecial) {
-                        limitTimeStr = "無期限 🕐️";
-                    } else {
-                        const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch + " まで";
-                    }
-
+                    // 💡 【修正】名前の抽出処理を安全な方法に徹底修正
                     const lines = targetText.split(/[\r\n]+/);
                     let suspects = [], crimes = [], isCrimeSection = false;
 
@@ -205,6 +178,32 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
+                    // スペースを抜いた「純粋な容疑者名」をキー（部屋名）にする
+                    const nameKey = suspectPart.replace(/・/g, '').replace(/\s+/g, '');
+                    if (!nameKey) continue;
+
+                    // 💡 【逮捕済みの自動削除】C列がTRUEなら、マップからデータを完全削除してスキップ
+                    if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) {
+                        if (latestCardsMap[nameKey]) {
+                            delete latestCardsMap[nameKey];
+                        }
+                        continue;
+                    }
+
+                    const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
+                    const limitDate = parseLimitDateObj(targetText);
+
+                    // 期限切れデータはマップに入れずに飛ばす
+                    if (!isSpecial && limitDate && limitDate <= now) continue;
+
+                    let limitTimeStr = "不明";
+                    if (isSpecial) {
+                        limitTimeStr = "無期限 🕐️";
+                    } else {
+                        const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
+                        if (timeMatch) limitTimeStr = timeMatch[0] + " まで";
+                    }
+
                     let isUnder30Min = false;
                     if (!isSpecial && limitDate) {
                         const diffMs = limitDate.getTime() - now.getTime();
@@ -216,8 +215,8 @@
                     }
 
                     const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
-                    const nameKey = suspectPart.replace(/・/g, '').replace(/\s+/g, '');
                     
+                    // 下に向かってループしているので、同じ名前が来たら新しいデータで自動的に「上書き」されます
                     latestCardsMap[nameKey] = {
                         id: i, sortTime: sortTime, isSpecial: isSpecial, isUnder30Min: isUnder30Min,
                         limitTimeStr: limitTimeStr, suspectPart: suspectPart, crimePart: crimePart
