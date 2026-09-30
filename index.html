@@ -72,9 +72,9 @@
             <button onclick="toggleDisplayMode()" id="btn-mode-toggle" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">通常表示</button>
         </div>
 
-        <!--  非表示カードを一括ですべて元に戻すコントロールボタン -->
+        <!-- 💡 非表示カードを一括ですべて元に戻すコントロールボタン -->
         <div id="global-reset-area" style="display: none; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
-            <button onclick="resetAllHiddenSuspects()" style="padding: 6px 12px; background: #ff4d4d; color: #fff; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">🔄 非表示中をすべて元に戻す</button>
+            <button onclick="resetAllHiddenSuspects()" style="padding: 6px 12px; background: #ff9900; color: #11141a; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">🔄 非表示をすべて元に戻す</button>
         </div>
     </div>
 
@@ -187,7 +187,6 @@
             updateButtonStyles();
         }
 
-
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
@@ -205,8 +204,8 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow; 
-                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
+                    const targetText = currentRow[1]; 
+                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
 
                     if (!targetText || !targetText.trim()) continue;
 
@@ -244,14 +243,17 @@
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
-                    if (!isSpecial && limitDate && limitDate <= now) continue;
+                    // 自動削除機能：未来のデータのみを表示
+                    if (!isSpecial && limitDate && limitDate <= now) {
+                        continue; 
+                    }
 
                     let limitTimeStr = "不明";
                     if (isSpecial) {
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch + " まで";
+                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで";
                     }
 
                     let isUnder30Min = false;
@@ -293,7 +295,7 @@
                         }
                     });
 
-                    //  カード内の犯人が全員「済」になったら、カード自体を完全にスキップ（非表示にする）
+                    // 💡 カード内の犯人が全員「済」になったら、カード自体を完全に画面から消去（非表示化）
                     if (hiddenCount > 0 && hiddenCount === data.suspectList.length) {
                         return; 
                     }
