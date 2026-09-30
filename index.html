@@ -72,7 +72,6 @@
             <button onclick="toggleDisplayMode()" id="btn-mode-toggle" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">通常表示</button>
         </div>
 
-        <!-- 非表示カードを一括ですべて元に戻すコントロールボタン -->
         <div id="global-reset-area" style="display: none; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
             <button onclick="resetAllHiddenSuspects()" style="padding: 6px 12px; background: #ff9900; color: #11141a; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">🔄 非表示をすべて元に戻す</button>
         </div>
@@ -151,7 +150,6 @@
             return lines;
         }
 
-        // 💡 【大修正】クラッシュの元凶だったインデックス指定[1],[2]..を完璧に追加して修正！
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
@@ -175,7 +173,6 @@
         }
 
         function resetCardSuspects(suspectList, cardId) {
-            // このカードに所属する名前のキーのみをピンポイントで復旧
             const keysToRemove = suspectList.map(s => cardId + "-" + s.replace(/\s+/g, ''));
             hiddenSuspects = hiddenSuspects.filter(key => !keysToRemove.includes(key));
             localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
@@ -189,7 +186,7 @@
             fetchList();
             updateButtonStyles();
         }
-        
+
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
@@ -235,7 +232,6 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
-                    // 💡 時間上書き用のキー（名前の一致確認用）
                     const nameKey = suspectPart.replace(/・/g, '').replace(/\s+/g, '');
                     if (!nameKey) continue;
 
@@ -247,8 +243,22 @@
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
-                    // 自動非表示：期限切れデータを完全に消す
+                    // 自動非表示：期限切れデータを消去
                     if (!isSpecial && limitDate && limitDate <= now) continue;
+
+                    // 💡 【上書きロジックの判定】新しい期限が古いものより「未来」の場合のみ上書き更新を許可
+                    if (latestCardsMap[nameKey]) {
+                        const existingCard = latestCardsMap[nameKey];
+                        if (existingCard.isSpecial) {
+                            if (!isSpecial) continue;
+                        } else {
+                            if (!isSpecial && limitDate && existingCard.limitDateObj) {
+                                if (limitDate <= existingCard.limitDateObj) {
+                                    continue; 
+                                }
+                            }
+                        }
+                    }
 
                     let limitTimeStr = "不明";
                     if (isSpecial) {
@@ -270,10 +280,10 @@
 
                     const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
                     
-                    // 下に向かって処理するので、同じ名前なら最新のデータ（延長時間）で確実に上書き保存される
                     latestCardsMap[nameKey] = {
                         id: i, sortTime: sortTime, isSpecial: isSpecial, isUnder30Min: isUnder30Min,
-                        limitTimeStr: limitTimeStr, suspectList: suspects, crimePart: crimePart, nameKey: nameKey
+                        limitTimeStr: limitTimeStr, suspectList: suspects, crimePart: crimePart, nameKey: nameKey,
+                        limitDateObj: limitDate
                     };
                 }
 
@@ -285,7 +295,6 @@
                     let hiddenCount = 0;
 
                     data.suspectList.forEach((suspect) => {
-                        // 💡 上書きされてもバグらないよう、固有名Keyをベースにした強固な個別キーに修正
                         const uniqueKey = data.nameKey + "-" + suspect.replace(/\s+/g, '');
                         if (hiddenSuspects.includes(uniqueKey)) {
                             hiddenCount++;
@@ -299,7 +308,6 @@
                         }
                     });
 
-                    // 💡 【修正点】「全員」が済になった時だけカードを完全に隠す（1人消しただけでは絶対消えません）
                     if (hiddenCount > 0 && hiddenCount === data.suspectList.length) {
                         return; 
                     }
@@ -310,8 +318,6 @@
                     else { cardElement.className = "wanted-card"; }
 
                     const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
-                    
-                    // 復活用の引数指定を安全に修正
                     const suspectArrayJson = JSON.stringify(data.suspectList).replace(/"/g, "'");
                     const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${suspectArrayJson}, '${data.nameKey}')">🔄 ${hiddenCount}名非表示中 [元に戻す]</button>` : '';
 
@@ -356,4 +362,4 @@
         setInterval(fetchList, 180000);
     </script>
 </body>
-</html>
+</html>        
