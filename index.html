@@ -13,11 +13,21 @@
         #wanted-list[data-size="medium"] { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
         #wanted-list[data-size="large"] { grid-template-columns: 1fr; }
         
-        .wanted-card { background: #171d26; border: 1px solid #252d3d; border-radius: 8px; padding: 16px; box-sizing: border-box; transition: all 0.3s ease; }
+        .wanted-card { background: #171d26; border: 1px solid #252d3d; border-radius: 8px; padding: 16px; box-sizing: border-box; transition: all 0.3s ease; position: relative; }
         .wanted-badge { display: inline-block; padding: 4px 8px; background: #ff3333; color: #fff; font-weight: bold; font-size: 11px; border-radius: 4px; margin-bottom: 12px; }
         .limit-time { font-size: 14px; color: #ffcc00; font-weight: bold; margin-bottom: 12px; }
         .section-title { color: #8a99ad; font-size: 12px; font-weight: bold; margin-bottom: 6px; margin-top: 14px; border-left: 3px solid #3b485e; padding-left: 6px; }
-        .suspect-text { white-space: pre-wrap; font-weight: bold; font-size: 16px; color: #fff; line-height: 1.5; }
+        
+        /* 👤 容疑者名ごとの行スタイル */
+        .suspect-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #222a36; }
+        .suspect-name { font-weight: bold; font-size: 16px; color: #fff; white-space: pre-wrap; }
+        .逮捕ボタン { background: #252d3d; color: #ff4d4d; border: 1px solid #ff4d4d; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .逮捕ボタン:hover { background: #ff4d4d; color: #fff; }
+        
+        /* 🔄 復活ボタンのスタイル */
+        .reset-link { position: absolute; top: 16px; right: 16px; font-size: 11px; color: #a3b3cc; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; font-weight: bold; }
+        .reset-link:hover { color: #ffcc00; }
+
         .toggle-btn { display: flex; justify-content: space-between; width: 100%; padding: 8px 12px; background: #252d3d; border: none; color: #a3b3cc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; margin-top: 6px; }
         .toggle-content { display: none; margin-top: 8px; padding: 12px; background: #11141a; border-radius: 4px; white-space: pre-wrap; color: #ffcc00; font-size: 14px; line-height: 1.5; font-weight: bold; }
         
@@ -35,15 +45,16 @@
             100% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
         }
 
-        /* 💡 「名前のみ表示」がONの時に、期限と罪状セクションを非表示にするルール */
+        /* 💡 「名前のみ表示」ルール */
         #wanted-list.name-only-mode .limit-time,
         #wanted-list.name-only-mode .wanted-badge,
         #wanted-list.name-only-mode .section-title,
         #wanted-list.name-only-mode .toggle-btn,
-        #wanted-list.name-only-mode .toggle-content {
-            display: none !important;
-        }
+        #wanted-list.name-only-mode .reset-link,
+        #wanted-list.name-only-mode .toggle-content { display: none !important; }
         #wanted-list.name-only-mode .wanted-card { padding: 12px; }
+        #wanted-list.name-only-mode .suspect-row { border-bottom: none; padding: 2px 0; }
+        #wanted-list.name-only-mode .逮捕ボタン { display: none !important; }
     </style>
 </head>
 <body>
@@ -72,6 +83,9 @@
 
         let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
         let isNameOnly = localStorage.getItem('wanted-name-only') === 'true';
+
+        // 💡 個別逮捕（非表示）状態を記憶するリスト
+        let hiddenSuspects = JSON.parse(localStorage.getItem('hidden-suspects') || '[]');
 
         function changeSize(size) {
             currentSize = size;
@@ -135,7 +149,23 @@
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
-            return new Date(2026, parseInt(timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
+            return new Date(2026, parseInt(timeMatch[10] ? timeMatch[1] : timeMatch[1], 10) - 1, parseInt(timeMatch[2], 10), parseInt(timeMatch[3], 10), parseInt(timeMatch[4], 10));
+        }
+        // 💡 名前の横の「済」ボタンを押したときの処理
+        function hideSingleSuspect(uniqueKey, originalLine, cardId) {
+            if (!hiddenSuspects.includes(uniqueKey)) {
+                hiddenSuspects.push(uniqueKey);
+                localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
+                fetchList(); // 画面を再リフレッシュ
+            }
+        }
+
+        // 💡 復活ボタンを押して名前を元に戻す処理
+        function resetCardSuspects(cardId) {
+            // このカードに含まれる非表示データを一括復旧
+            hiddenSuspects = hiddenSuspects.filter(key => !key.startsWith(cardId + "-"));
+            localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
+            fetchList();
         }
 
         async function fetchList() {
@@ -160,13 +190,12 @@
 
                     if (!targetText || !targetText.trim()) continue;
 
-                    // 💡 【修正】名前の抽出処理を安全な方法に徹底修正
                     const lines = targetText.split(/[\r\n]+/);
                     let suspects = [], crimes = [], isCrimeSection = false;
 
                     lines.forEach(line => {
                         let trimmed = line.trim();
-                        if (!trimmed || trimmed.includes('指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('🕐️')) return;
+                        if (!trimmed || trimmed.includes('指名手配') || trimmed.includes('無期限') || trimmed.includes('まで') || trimmed.includes('---')) return;
                         if (trimmed.includes('--- 罪状 ---')) { isCrimeSection = true; } 
                         else if (trimmed.startsWith('・')) {
                             if (isCrimeSection) { crimes.push(trimmed); } else { suspects.push(trimmed); }
@@ -178,22 +207,17 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
-                    // スペースを抜いた「純粋な容疑者名」をキー（部屋名）にする
                     const nameKey = suspectPart.replace(/・/g, '').replace(/\s+/g, '');
                     if (!nameKey) continue;
 
-                    // 💡 【逮捕済みの自動削除】C列がTRUEなら、マップからデータを完全削除してスキップ
                     if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) {
-                        if (latestCardsMap[nameKey]) {
-                            delete latestCardsMap[nameKey];
-                        }
+                        if (latestCardsMap[nameKey]) delete latestCardsMap[nameKey];
                         continue;
                     }
 
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
-                    // 期限切れデータはマップに入れずに飛ばす
                     if (!isSpecial && limitDate && limitDate <= now) continue;
 
                     let limitTimeStr = "不明";
@@ -201,7 +225,7 @@
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[0] + " まで";
+                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで";
                     }
 
                     let isUnder30Min = false;
@@ -216,10 +240,9 @@
 
                     const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
                     
-                    // 下に向かってループしているので、同じ名前が来たら新しいデータで自動的に「上書き」されます
                     latestCardsMap[nameKey] = {
                         id: i, sortTime: sortTime, isSpecial: isSpecial, isUnder30Min: isUnder30Min,
-                        limitTimeStr: limitTimeStr, suspectPart: suspectPart, crimePart: crimePart
+                        limitTimeStr: limitTimeStr, suspectList: suspects, crimePart: crimePart
                     };
                 }
 
@@ -227,18 +250,43 @@
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
 
                 validCards.forEach(data => {
+                    // 非表示にされた名前をフィルタリングして除外する
+                    let visibleSuspectRowsHtml = '';
+                    let hiddenCount = 0;
+
+                    data.suspectList.forEach((suspect, idx) => {
+                        const uniqueKey = data.id + "-" + suspect.replace(/\s+/g, '');
+                        if (hiddenSuspects.includes(uniqueKey)) {
+                            hiddenCount++;
+                        } else {
+                            visibleSuspectRowsHtml += `
+                                <div class="suspect-row">
+                                    <span class="suspect-name">${suspect}</span>
+                                    <button class="逮捕ボタン" onclick="hideSingleSuspect('${uniqueKey}', '${suspect}', ${data.id})">済</button>
+                                </div>
+                            `;
+                        }
+                    });
+
+                    // カード内の犯人が全員個別消し込みされたら、カード自体を非表示にする
+                    if (hiddenCount > 0 && hiddenCount === data.suspectList.length) return;
+
                     const cardElement = document.createElement('div');
                     if (data.isSpecial) { cardElement.className = "wanted-card special-mode"; }
                     else if (data.isUnder30Min) { cardElement.className = "wanted-card alert-mode"; }
                     else { cardElement.className = "wanted-card"; }
 
                     const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
+                    
+                    // 🔄 もし消えている名前があれば、復活ボタンを表示
+                    const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${data.id})">🔄 ${hiddenCount}名非表示中 [元に戻す]</button>` : '';
 
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
+                        ${resetBtnHtml}
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
                         <div class="section-title">👤 犯人</div>
-                        <div class="suspect-text">${data.suspectPart}</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">${visibleSuspectRowsHtml}</div>
                         <div class="section-title">⚖️ 詳細</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
                             <span>詳細を確認 (隠されています)</span> <span>▼</span>
