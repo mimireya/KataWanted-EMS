@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>指名手配リスト</title>
+    <title>KataCity指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
@@ -28,6 +28,9 @@
         .reset-link { position: absolute; top: 16px; right: 16px; font-size: 11px; color: #a3b3cc; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; font-weight: bold; }
         .reset-link:hover { color: #ffcc00; }
 
+        /* 💡 全員消去されたカード用の薄暗いスタイル */
+        .wanted-card.all-hidden-card { opacity: 0.5; border: 1px dashed #444 !important; background: #12171f !important; box-shadow: none !important; }
+
         .toggle-btn { display: flex; justify-content: space-between; width: 100%; padding: 8px 12px; background: #252d3d; border: none; color: #a3b3cc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; margin-top: 6px; }
         .toggle-content { display: none; margin-top: 8px; padding: 12px; background: #11141a; border-radius: 4px; white-space: pre-wrap; color: #ffcc00; font-size: 14px; line-height: 1.5; font-weight: bold; }
         
@@ -35,7 +38,7 @@
         .wanted-card.special-mode { border: 2px solid #b300ff !important; background: linear-gradient(135deg, #1b1124 0%, #11091a 100%) !important; box-shadow: 0 0 15px rgba(179, 0, 255, 0.2); }
         .wanted-card.special-mode .wanted-badge { background: linear-gradient(90deg, #b300ff 0%, #d4af37 100%) !important; }
 
-        /* 🚨 残り30分未満 of 警告カードデザイン */
+        /* 🚨 残り30分未満の警告カードデザイン */
         .wanted-card.alert-mode { border: 2px solid #ff9900 !important; box-shadow: 0 0 15px rgba(255, 153, 0, 0.4); animation: pulseAlert 2.5s infinite; }
         .wanted-card.alert-mode .wanted-badge { background: #ff9900 !important; color: #11141a !important; }
         .wanted-card.alert-mode .limit-time { color: #ff9900 !important; }
@@ -45,16 +48,14 @@
             100% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
         }
 
-        /* 💡 「名前のみ表示」ルール */
+        /* 💡 【修正】名前のみ表示モードでもボタンやリセットリンクが隠れないように変更 */
         #wanted-list.name-only-mode .limit-time,
         #wanted-list.name-only-mode .wanted-badge,
         #wanted-list.name-only-mode .section-title,
         #wanted-list.name-only-mode .toggle-btn,
-        #wanted-list.name-only-mode .reset-link,
         #wanted-list.name-only-mode .toggle-content { display: none !important; }
-        #wanted-list.name-only-mode .wanted-card { padding: 12px; }
+        #wanted-list.name-only-mode .wanted-card { padding: 12px; padding-top: 35px; } /* ボタンの隙間を確保 */
         #wanted-list.name-only-mode .suspect-row { border-bottom: none; padding: 2px 0; }
-        #wanted-list.name-only-mode .逮捕ボタン { display: none !important; }
     </style>
 </head>
 <body>
@@ -143,7 +144,6 @@
             return lines;
         }
 
-        // 💡 【バグ完全修正】クラッシュを引き起こしていたゴミコードを完全に排除
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
@@ -170,6 +170,7 @@
             localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
             fetchList();
         }
+
         async function fetchList() {
             try {
                 const response = await fetch(SPREADSHEET_CSV_URL + (SPREADSHEET_CSV_URL.includes('?') ? '&' : '?') + "nocache=" + Date.now());
@@ -226,10 +227,7 @@
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
                     const limitDate = parseLimitDateObj(targetText);
 
-                    // 💡 【自動削除機能】期限が現在時刻を過ぎている過去データは画面から完全に消す
-                    if (!isSpecial && limitDate && limitDate <= now) {
-                        continue; 
-                    }
+                    if (!isSpecial && limitDate && limitDate <= now) continue;
 
                     let limitTimeStr = "不明";
                     if (isSpecial) {
@@ -264,7 +262,7 @@
                     let visibleSuspectRowsHtml = '';
                     let hiddenCount = 0;
 
-                    data.suspectList.forEach((suspect, idx) => {
+                    data.suspectList.forEach((suspect) => {
                         const uniqueKey = data.id + "-" + suspect.replace(/\s+/g, '');
                         if (hiddenSuspects.includes(uniqueKey)) {
                             hiddenCount++;
@@ -278,22 +276,34 @@
                         }
                     });
 
-                    if (hiddenCount > 0 && hiddenCount === data.suspectList.length) return;
-
                     const cardElement = document.createElement('div');
+                    
+                    // 💡 【修正】全員非表示になってもカード自体は消さず、専用のall-hidden-cardクラスを付与
+                    let isAllHidden = (hiddenCount > 0 && hiddenCount === data.suspectList.length);
+                    
                     if (data.isSpecial) { cardElement.className = "wanted-card special-mode"; }
                     else if (data.isUnder30Min) { cardElement.className = "wanted-card alert-mode"; }
                     else { cardElement.className = "wanted-card"; }
 
+                    if (isAllHidden) {
+                        cardElement.className += " all-hidden-card";
+                    }
+
                     const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
-                    const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${data.id})">🔄 ${hiddenCount}名非表示中 [元に戻す]</button>` : '';
+                    
+                    // 🔄 全員消去、または一部消去時に必ず復活ボタンを出せるように設置
+                    let resetText = isAllHidden ? `🔄 全員非表示中 [元に戻す]` : `🔄 ${hiddenCount}名非表示中 [元に戻す]`;
+                    const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${data.id})">${resetText}</button>` : '';
+
+                    // もし全員隠れている場合は中身をスッキリさせる
+                    let suspectsContent = isAllHidden ? `<div style="text-align: center; color: #8a99ad; padding: 10px; font-size: 14px; font-weight: bold;">全員非表示に設定されています</div>` : visibleSuspectRowsHtml;
 
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
                         ${resetBtnHtml}
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
                         <div class="section-title">👤 犯人</div>
-                        <div style="display: flex; flex-direction: column; gap: 4px;">${visibleSuspectRowsHtml}</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">${suspectsContent}</div>
                         <div class="section-title">⚖️ 詳細</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
                             <span>詳細を確認 (隠されています)</span> <span>▼</span>
