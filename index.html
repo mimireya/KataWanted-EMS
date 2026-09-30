@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>KataCity指名手配リスト</title>
+    <title>指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
@@ -28,9 +28,6 @@
         .reset-link { position: absolute; top: 16px; right: 16px; font-size: 11px; color: #a3b3cc; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; font-weight: bold; }
         .reset-link:hover { color: #ffcc00; }
 
-        /* 💡 全員消去されたカード用の薄暗いスタイル */
-        .wanted-card.all-hidden-card { opacity: 0.5; border: 1px dashed #444 !important; background: #12171f !important; box-shadow: none !important; }
-
         .toggle-btn { display: flex; justify-content: space-between; width: 100%; padding: 8px 12px; background: #252d3d; border: none; color: #a3b3cc; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; margin-top: 6px; }
         .toggle-content { display: none; margin-top: 8px; padding: 12px; background: #11141a; border-radius: 4px; white-space: pre-wrap; color: #ffcc00; font-size: 14px; line-height: 1.5; font-weight: bold; }
         
@@ -48,13 +45,13 @@
             100% { box-shadow: 0 0 15px rgba(255, 153, 0, 0.3); }
         }
 
-        /* 💡 【修正】名前のみ表示モードでもボタンやリセットリンクが隠れないように変更 */
+        /* 💡 「名前のみ表示」ルール */
         #wanted-list.name-only-mode .limit-time,
         #wanted-list.name-only-mode .wanted-badge,
         #wanted-list.name-only-mode .section-title,
         #wanted-list.name-only-mode .toggle-btn,
         #wanted-list.name-only-mode .toggle-content { display: none !important; }
-        #wanted-list.name-only-mode .wanted-card { padding: 12px; padding-top: 35px; } /* ボタンの隙間を確保 */
+        #wanted-list.name-only-mode .wanted-card { padding: 12px; padding-top: 35px; } 
         #wanted-list.name-only-mode .suspect-row { border-bottom: none; padding: 2px 0; }
     </style>
 </head>
@@ -73,6 +70,11 @@
         <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
             <span style="font-size: 13px; color: #a3b3cc; font-weight: bold;">👁️ 表示モード:</span>
             <button onclick="toggleDisplayMode()" id="btn-mode-toggle" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">通常表示</button>
+        </div>
+
+        <!-- 💡 【新設】非表示カードを一括ですべて元に戻すコントロールボタン -->
+        <div id="global-reset-area" style="display: none; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
+            <button onclick="resetAllHiddenSuspects()" style="padding: 6px 12px; background: #ff4d4d; color: #fff; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">🔄 非表示中をすべて元に戻す</button>
         </div>
     </div>
 
@@ -125,6 +127,12 @@
                     toggleBtn.style.background = "#252d3d"; toggleBtn.style.color = "#fff";
                 }
             }
+
+            // 全体リセットボタンの表示・非表示コントロール
+            const globalResetArea = document.getElementById('global-reset-area');
+            if (globalResetArea) {
+                globalResetArea.style.display = hiddenSuspects.length > 0 ? "flex" : "none";
+            }
         }
 
         function robustParseCSV(text) {
@@ -149,10 +157,10 @@
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             
-            const month = parseInt(timeMatch[1], 10);
-            const day = parseInt(timeMatch[2], 10);
-            const hour = parseInt(timeMatch[3], 10);
-            const minute = parseInt(timeMatch[4], 10);
+            const month = parseInt(timeMatch, 10);
+            const day = parseInt(timeMatch, 10);
+            const hour = parseInt(timeMatch, 10);
+            const minute = parseInt(timeMatch, 10);
             
             return new Date(2026, month - 1, day, hour, minute);
         }
@@ -162,6 +170,7 @@
                 hiddenSuspects.push(uniqueKey);
                 localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
                 fetchList();
+                updateButtonStyles();
             }
         }
 
@@ -169,6 +178,15 @@
             hiddenSuspects = hiddenSuspects.filter(key => !key.startsWith(cardId + "-"));
             localStorage.setItem('hidden-suspects', JSON.stringify(hiddenSuspects));
             fetchList();
+            updateButtonStyles();
+        }
+
+        // 💡 【新機能】個別に消したすべての名前を一斉に復活させる処理
+        function resetAllHiddenSuspects() {
+            hiddenSuspects = [];
+            localStorage.removeItem('hidden-suspects');
+            fetchList();
+            updateButtonStyles();
         }
 
         async function fetchList() {
@@ -188,8 +206,8 @@
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow[1]; 
-                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
+                    const targetText = currentRow; 
+                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
 
                     if (!targetText || !targetText.trim()) continue;
 
@@ -234,7 +252,7 @@
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch) limitTimeStr = timeMatch[1] + " まで";
+                        if (timeMatch) limitTimeStr = timeMatch + " まで";
                     }
 
                     let isUnder30Min = false;
@@ -276,34 +294,25 @@
                         }
                     });
 
+                    // 💡 【大改良】カード内の犯人が全員「済」になったら、カード自体を完全にスキップ（非表示にする）
+                    if (hiddenCount > 0 && hiddenCount === data.suspectList.length) {
+                        return; 
+                    }
+
                     const cardElement = document.createElement('div');
-                    
-                    // 💡 【修正】全員非表示になってもカード自体は消さず、専用のall-hidden-cardクラスを付与
-                    let isAllHidden = (hiddenCount > 0 && hiddenCount === data.suspectList.length);
-                    
                     if (data.isSpecial) { cardElement.className = "wanted-card special-mode"; }
                     else if (data.isUnder30Min) { cardElement.className = "wanted-card alert-mode"; }
                     else { cardElement.className = "wanted-card"; }
 
-                    if (isAllHidden) {
-                        cardElement.className += " all-hidden-card";
-                    }
-
                     const badgeName = data.isSpecial ? '特殊指名手配' : (data.isUnder30Min ? '🚨 URGENT' : 'WANTED');
-                    
-                    // 🔄 全員消去、または一部消去時に必ず復活ボタンを出せるように設置
-                    let resetText = isAllHidden ? `🔄 全員非表示中 [元に戻す]` : `🔄 ${hiddenCount}名非表示中 [元に戻す]`;
-                    const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${data.id})">${resetText}</button>` : '';
-
-                    // もし全員隠れている場合は中身をスッキリさせる
-                    let suspectsContent = isAllHidden ? `<div style="text-align: center; color: #8a99ad; padding: 10px; font-size: 14px; font-weight: bold;">全員非表示に設定されています</div>` : visibleSuspectRowsHtml;
+                    const resetBtnHtml = hiddenCount > 0 ? `<button class="reset-link" onclick="resetCardSuspects(${data.id})">🔄 ${hiddenCount}名非表示中 [元に戻す]</button>` : '';
 
                     cardElement.innerHTML = `
                         <div class="wanted-badge">${badgeName}</div>
                         ${resetBtnHtml}
                         <div class="limit-time">⏱️ 期限: ${data.limitTimeStr}</div>
                         <div class="section-title">👤 犯人</div>
-                        <div style="display: flex; flex-direction: column; gap: 4px;">${suspectsContent}</div>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">${visibleSuspectRowsHtml}</div>
                         <div class="section-title">⚖️ 詳細</div>
                         <button class="toggle-btn" onclick="toggleSection(${data.id}, this)">
                             <span>詳細を確認 (隠されています)</span> <span>▼</span>
