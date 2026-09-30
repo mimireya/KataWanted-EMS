@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>KataCity指名手配リスト</title>
+    <title>指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
@@ -133,19 +133,11 @@
             return lines;
         }
 
-        // 💡 【大修正】クラッシュを引き起こしていた日付パースを完全に修正
         function parseLimitDateObj(text) {
             if (!text || text.includes('無期限')) return null;
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
-            
-            // timeMatch[0]ではなく、マッチした各パーツ（[1]=月, [2]=日...）を正確にパース
-            const month = parseInt(timeMatch[1], 10);
-            const day = parseInt(timeMatch[2], 10);
-            const hour = parseInt(timeMatch[3], 10);
-            const minute = parseInt(timeMatch[4], 10);
-            
-            return new Date(2026, month - 1, day, hour, minute);
+            return new Date(2026, parseInt(timeMatch[10], 10) - 1, parseInt(timeMatch[10], 10), parseInt(timeMatch[10], 10), parseInt(timeMatch[10], 10));
         }
 
         async function fetchList() {
@@ -158,18 +150,29 @@
                 container.setAttribute('data-size', currentSize);
                 container.innerHTML = '';
 
-                let validCards = [];
-                let processedKeys = new Set(); 
+                let latestCardsMap = {}; 
                 const now = new Date();
 
                 for (let i = 1; i < allRows.length; i++) {
                     const currentRow = allRows[i];
                     if (!currentRow || currentRow.length < 2) continue;
 
-                    const targetText = currentRow[1]; 
-                    const targetStatus = currentRow[2] ? currentRow[2].trim().toUpperCase() : ""; 
+                    const targetText = currentRow; 
+                    const targetStatus = currentRow ? currentRow.trim().toUpperCase() : ""; 
 
-                    if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) continue;
+                    if (targetStatus === "TRUE" || targetStatus.includes("逮捕済み")) {
+                        const tempLines = targetText.split(/[\r\n]+/);
+                        let tempSuspects = [];
+                        tempLines.forEach(l => {
+                            let t = l.trim();
+                            if (t && !t.includes('指名手配') && !t.includes('無期限') && !t.includes('まで') && !t.includes('---')) {
+                                tempSuspects.push(t.replace('・', ''));
+                            }
+                        });
+                        const nameKey = tempSuspects.join('').replace(/\s+/g, '');
+                        if (nameKey) delete latestCardsMap[nameKey];
+                        continue;
+                    }
                     if (!targetText || !targetText.trim()) continue;
 
                     const isSpecial = targetText.includes('特殊指名手配') || targetText.includes('無期限');
@@ -182,9 +185,7 @@
                         limitTimeStr = "無期限 🕐️";
                     } else {
                         const timeMatch = targetText.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{1,2})/);
-                        if (timeMatch && timeMatch[0]) {
-                            limitTimeStr = timeMatch[0] + " まで";
-                        }
+                        if (timeMatch) limitTimeStr = timeMatch + " まで";
                     }
 
                     const lines = targetText.split(/[\r\n]+/);
@@ -204,11 +205,6 @@
                     if (suspects.length === 0) suspects.push("・記載なし");
                     let suspectPart = suspects.join('\n'), crimePart = crimes.join('\n');
 
-                    // 安全な重複チェックキー
-                    const uniqueKey = suspectPart.replace(/\s+/g, '') + limitTimeStr.replace(/\s+/g, '');
-                    if (processedKeys.has(uniqueKey)) continue; 
-                    processedKeys.add(uniqueKey);
-
                     let isUnder30Min = false;
                     if (!isSpecial && limitDate) {
                         const diffMs = limitDate.getTime() - now.getTime();
@@ -220,13 +216,15 @@
                     }
 
                     const sortTime = isSpecial ? 0 : (limitDate ? limitDate.getTime() : 8640000000000000);
-
-                    validCards.push({
+                    const nameKey = suspectPart.replace(/・/g, '').replace(/\s+/g, '');
+                    
+                    latestCardsMap[nameKey] = {
                         id: i, sortTime: sortTime, isSpecial: isSpecial, isUnder30Min: isUnder30Min,
                         limitTimeStr: limitTimeStr, suspectPart: suspectPart, crimePart: crimePart
-                    });
+                    };
                 }
 
+                let validCards = Object.values(latestCardsMap);
                 validCards.sort((a, b) => a.sortTime - b.sortTime);
 
                 validCards.forEach(data => {
