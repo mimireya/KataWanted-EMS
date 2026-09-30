@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>指名手配リスト</title>
+    <title>KataCity指名手配リスト</title>
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
@@ -72,7 +72,7 @@
             <button onclick="toggleDisplayMode()" id="btn-mode-toggle" style="padding: 6px 12px; background: #252d3d; color: #fff; border: 1px solid #3b485e; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">通常表示</button>
         </div>
 
-        <!-- 💡 【新設】非表示カードを一括ですべて元に戻すコントロールボタン -->
+        <!--  非表示カードを一括ですべて元に戻すコントロールボタン -->
         <div id="global-reset-area" style="display: none; gap: 6px; align-items: center; border-left: 1px solid #3b485e; padding-left: 15px;">
             <button onclick="resetAllHiddenSuspects()" style="padding: 6px 12px; background: #ff4d4d; color: #fff; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: bold;">🔄 非表示中をすべて元に戻す</button>
         </div>
@@ -81,7 +81,7 @@
     <div id="wanted-list" data-size="medium"></div>
 
     <script>
-        // ⚠️ ここにご自身のGoogleスプレッドシートのCSV URLを確実に貼り付けてください
+        //  ここにGoogleスプレッドシートのCSV URLを貼り付け
         const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQD3U8h3RprT9JzloMcWAL04QFXRVYH470r00GnBAYkcRiQ33Qha9tws1ozjEHSm1WYPXC2oLxPzYFy/pub?gid=1025771059&single=true&output=csv";
 
         let currentSize = localStorage.getItem('wanted-card-size') || 'medium';
@@ -128,7 +128,6 @@
                 }
             }
 
-            // 全体リセットボタンの表示・非表示コントロール
             const globalResetArea = document.getElementById('global-reset-area');
             if (globalResetArea) {
                 globalResetArea.style.display = hiddenSuspects.length > 0 ? "flex" : "none";
@@ -157,10 +156,10 @@
             const timeMatch = text.match(/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
             if (!timeMatch) return null;
             
-            const month = parseInt(timeMatch, 10);
-            const day = parseInt(timeMatch, 10);
-            const hour = parseInt(timeMatch, 10);
-            const minute = parseInt(timeMatch, 10);
+            const month = parseInt(timeMatch[1], 10);
+            const day = parseInt(timeMatch[2], 10);
+            const hour = parseInt(timeMatch[3], 10);
+            const minute = parseInt(timeMatch[4], 10);
             
             return new Date(2026, month - 1, day, hour, minute);
         }
@@ -181,13 +180,13 @@
             updateButtonStyles();
         }
 
-        // 💡 【新機能】個別に消したすべての名前を一斉に復活させる処理
         function resetAllHiddenSuspects() {
             hiddenSuspects = [];
             localStorage.removeItem('hidden-suspects');
             fetchList();
             updateButtonStyles();
         }
+
 
         async function fetchList() {
             try {
@@ -294,7 +293,7 @@
                         }
                     });
 
-                    // 💡 【大改良】カード内の犯人が全員「済」になったら、カード自体を完全にスキップ（非表示にする）
+                    //  カード内の犯人が全員「済」になったら、カード自体を完全にスキップ（非表示にする）
                     if (hiddenCount > 0 && hiddenCount === data.suspectList.length) {
                         return; 
                     }
