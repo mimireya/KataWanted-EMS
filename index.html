@@ -406,30 +406,30 @@
         fetchList();
         setInterval(fetchList, 180000);
 
-         // 1. マークダウンを完璧に変換するツール（marked.js）を自動で読み込む
-         const script = document.createElement('script');
-         script.src = 'https://jsdelivr.net';
-         document.head.appendChild(script);
+        // 1. マークダウンを完璧に変換するツール（marked.js）を自動で読み込む
+        const script = document.createElement('script');
+        script.src = 'https://jsdelivr.net';
+        document.head.appendChild(script);
 
-         script.onload = () => {
-         // 2. ツールが読み込み終わったらREADME.mdを取得する
-         fetch('README.md?t=' + new Date().getTime())
-           .then(response => {
-            if (!response.ok) throw new Error('README.mdが見つかりません');
-            return response.text();
-           })
-           .then(text => {
-         // 3. ツールを使って、リンクも折りたたみもすべて完璧にHTMLに変換！
-            const htmlContent = marked.parse(text);
+        script.onload = () => {
+          // 2. ツールが読み込み終わったらREADME.mdを取得する
+          fetch('README.md')
+            .then(response => {
+              if (!response.ok) throw new Error('README.mdが見つかりません');
+              return response.text();
+            })
+            .then(text => {
+              // 3. ツールを使って、リンクも折りたたみもすべて完璧にHTMLに変換！
+              const htmlContent = marked.parse(text);
       
-         // 画面に表示する
-         document.getElementById('readme-html').innerHTML = htmlContent;
-       })
-       .catch(err => {
-         document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
-         console.error(err);
-       });
-     }; 
+              // 画面に表示する
+              document.getElementById('readme-html').innerHTML = htmlContent;
+            })
+            .catch(err => {
+              document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
+              console.error(err);
+            });
+        };
         
    </script>
 </body>
