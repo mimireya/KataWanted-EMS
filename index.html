@@ -114,6 +114,25 @@
 .markdown-body strong { color: inherit; font-weight: bold; }
 .markdown-body li { margin-left: 20px; }
 .markdown-body a { color: #0366d6; text-decoration: underline; } /* リンクは分かりやすく */
+        /* リスト全体の上下の余白（隙間）をゼロにする */
+.markdown-body ul {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-left: 20px; /* 左側のインデント（ズレ）は適度に残す */
+}
+
+/* リストの各項目の上下の隙間をギリギリまで狭くする */
+.markdown-body li {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+/* 折りたたみ（details）自体の上下の余計な隙間も無くす */
+.markdown-body details {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
 
         
     </style>
