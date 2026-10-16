@@ -54,39 +54,66 @@
         #wanted-list.name-only-mode .wanted-card { padding: 12px; padding-top: 35px; } 
         #wanted-list.name-only-mode .suspect-row { border-bottom: none; padding: 2px 0; }
 
-        .readme-accordion {
-          max-width: 800px;
-          margin: 20px auto;
-          border: 1px solid #e1e4e8;
-          border-radius: 6px;
-          overflow: hidden;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-        }
-        .readme-summary {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 20px;
-          background-color: #f6f8fa;
-          cursor: pointer;
-          font-weight: 600;
-          color: #24292e;
-          user-select: none;
-          list-style: none;
-        }
-        .readme-summary::-webkit-details-marker { display: none; }
-        .readme-accordion[open] .summary-icon { transform: rotate(180deg); }
-        .summary-icon { font-size: 10px; transition: transform 0.2s; color: #586069; }
-        .readme-content-wrapper { max-height: 400px; overflow-y: auto; padding: 20px; background-color: #ffffff; border-top: 1px solid #e1e4e8; }
-        .markdown-body { font-size: 15px; line-height: 1.6; color: #24292e; }
-        .markdown-body h1 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; margin-top: 0; }
-        .markdown-body h2 { font-size: 1.25em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-        .markdown-body h3 { font-size: 1.1em; }
-        .markdown-body strong { color: #000; }
-        .markdown-body li { margin-left: 20px; }
+/* 全体の枠組み（太い線や独自の背景を廃止し、サイトに溶け込ませる） */
+.readme-accordion {
+  max-width: 800px;
+  margin: 20px auto;
+  border: 1px solid rgba(0, 0, 0, 0.12); /* どんな背景にも合う薄い半透明の線 */
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background-color: transparent; /* 背景を透明にしてサイトに馴染ませる */
+}
 
-        /* マークダウン変換ツールを最初に確実に読み込む */
-        <script src="https://jsdelivr.net"></script>
+/* クリックするヘッダー部分（背景を透明にし、下線だけにする） */
+.readme-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: transparent; /* グレーの塗りを消して透明に */
+  cursor: pointer;
+  font-weight: 600;
+  color: inherit; /* サイト全体の文字色をそのまま引き継ぐ */
+  user-select: none;
+  list-style: none;
+}
+.readme-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 開閉時の矢印アイコンの動き */
+.readme-accordion[open] .summary-icon {
+  transform: rotate(180deg);
+}
+.summary-icon {
+  font-size: 10px;
+  transition: transform 0.2s;
+  color: inherit; /* 矢印の色もサイトに馴染ませる */
+  opacity: 0.7;
+}
+
+/* 開いたときの中身のボックス（白塗りをやめて透明に） */
+.readme-content-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 20px;
+  background-color: transparent; /* 白い背景を消して透明に */
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* サイトに完全に溶け込む文字のデザイン */
+.markdown-body {
+  font-size: 15px;
+  line-height: 1.6;
+  color: inherit; /* 文字色をサイトの設定と統一 */
+}
+.markdown-body h1 { font-size: 1.5em; border-bottom: 1px solid rgba(0, 0, 0, 0.1); padding-bottom: 0.3em; margin-top: 0; }
+.markdown-body h2 { font-size: 1.25em; border-bottom: 1px solid rgba(0, 0, 0, 0.1); padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.1em; }
+.markdown-body strong { color: inherit; font-weight: bold; }
+.markdown-body li { margin-left: 20px; }
+.markdown-body a { color: #0366d6; text-decoration: underline; } /* リンクは分かりやすく */
 
         
     </style>
@@ -132,13 +159,13 @@
                   <details>
                    <summary>よくある質問（FAQ）</summary>
                    <p>Q. 新しい手配犯が追加されたはずなのに、画面に表示されません。
-A. データが反映されるまで最大5分ほどかかります。更新ボタンを何度も連打せず、少し待ってから確認してください。</p>
+<br>A. データが反映されるまで最大5分ほどかかります。更新ボタンを何度も連打せず、少し待ってから確認してください。</p>
                    <p>Q. サイトの文字が小さくて見づらいです。
-A. 画面の表示は各自の環境に依存しているため、お使いのブラウザ（ChromeやEdgeなど）の拡大機能を使って、見やすい大きさに各自で調整してください。変更しても他の人の画面は変わりませんので安心してください。</p>
+<br>A. 画面の表示は各自の環境に依存しているため、お使いのブラウザ（ChromeやEdgeなど）の拡大機能を使って、見やすい大きさに各自で調整してください。変更しても他の人の画面は変わりませんので安心してください。</p>
                    <p>Q. 自分がフォームのデータを追加したり、消したりしたいです。
-A. 現在フォームへ投稿・編集できるのは診療部長以上のみに制限されています。サイト上への追加や削除が必要な場合は、データ管理の権限を持つ人へ依頼するか、サイト上で非表示にするか、時間経過で消えるのを待ってください。</p>
+<br>A. 現在フォームへ投稿・編集できるのは診療部長以上のみに制限されています。サイト上への追加や削除が必要な場合は、データ管理の権限を持つ人へ依頼するか、サイト上で非表示にするか、時間経過で消えるのを待ってください。</p>
                    <p>Q. 名前が被ってる人がいるんだけど…
-A. 現在は、指名手配がまるっきり同じ人は被らないようになっていますが、一人でも名前が違う人と上がると別物としてサイト上に表示される仕様になっています。ちなみにそのあたりはボブさん作のビュワーアプリが完全上位互換となっています。</p>
+<br>A. 現在は、指名手配がまるっきり同じ人は被らないようになっていますが、一人でも名前が違う人と上がると別物としてサイト上に表示される仕様になっています。ちなみにそのあたりはボブさん作のビュワーアプリが完全上位互換となっています。</p>
                   </details>
                   <!-- ここまで -->
 
