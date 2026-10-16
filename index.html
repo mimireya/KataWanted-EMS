@@ -6,6 +6,18 @@
     <style>
         body { background: #11141a; color: #fff; font-family: sans-serif; padding: 20px; }
         #wanted-list { display: grid; gap: 16px; width: 100%; }
+
+          /* READMEを綺麗に表示するためのスタイル */
+       <link rel="stylesheet" href="https://cloudflare.com">
+          /* 表示エリアの幅や余白の調整（お好みに合わせて変更してください） */
+          .readme-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #fff;
+          }
         
         /* 🔲 各自の環境で並びを変えられる設定 */
         #wanted-list[data-size="mobile"] { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; } 
@@ -54,19 +66,7 @@
         #wanted-list.name-only-mode .wanted-card { padding: 12px; padding-top: 35px; } 
         #wanted-list.name-only-mode .suspect-row { border-bottom: none; padding: 2px 0; }
     </style>
-        <!-- READMEを綺麗に表示するためのスタイル -->
-    <link rel="stylesheet" href="https://cloudflare.com">
-    <style>
-       /* 表示エリアの幅や余白の調整（お好みに合わせて変更してください） */
-       .readme-container {
-         max-width: 800px;
-         margin: 20px auto;
-         padding: 20px;
-         border: 1px solid #ddd;
-         border-radius: 6px;
-         background-color: #fff;
-       }
-    </style>
+
 </head>
 <body>
 
