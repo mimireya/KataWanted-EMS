@@ -100,7 +100,9 @@
         <span class="summary-icon">▼</span>
       </summary>
       <div class="readme-content-wrapper">
-        <div id="readme-html" class="markdown-body">説明書を読み込み中...</div>
+        <div id="readme-html" class="markdown-body">
+            
+        </div>
       </div>
     </details>
 
@@ -409,25 +411,7 @@
         updateButtonStyles();
         fetchList();
         setInterval(fetchList, 180000);
-
-// 通信オプション（cache: 'no-store'）を使って、セキュリティエラーを出さずに、常に最新のREADMEを取得
-fetch('README.md', { cache: 'no-store' })
-  .then(response => {
-    if (!response.ok) throw new Error('README.mdが見つかりません');
-    return response.text();
-  })
-  .then(text => {
-    // 読み込んだMarkdownを、markedツールを使って完璧にHTMLへ変換
-    const htmlContent = marked.parse(text);
-    
-    // 画面に表示する
-    document.getElementById('readme-html').innerHTML = htmlContent;
-  })
-  .catch(err => {
-    document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
-    console.error(err);
-  });
-        
+ 
    </script>
 </body>
 </html>        
