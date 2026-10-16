@@ -70,6 +70,10 @@
 </head>
 <body>
 
+    <!-- この場所にREADMEの中身が自動で入ります -->
+     <div class="readme-container">
+      <div id="readme-html" class="markdown-body">説明書を読み込み中...</div>
+     </div>
     <!-- コントロールパネル -->
     <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; background: #171d26; padding: 12px; border-radius: 6px; border: 1px solid #252d3d;">
         <div style="display: flex; gap: 6px; align-items: center;">
@@ -91,11 +95,6 @@
     </div>
 
     <div id="wanted-list" data-size="medium"></div>
-
-      <!-- この場所にREADMEの中身が自動で入ります -->
-     <div class="readme-container">
-      <div id="readme-html" class="markdown-body">説明書を読み込み中...</div>
-     </div>
 
 
     <script>
@@ -380,27 +379,26 @@
         fetchList();
         setInterval(fetchList, 180000);
 
-      // ★あなたのアカウント名とリポジトリ名に書き換えてください
-       const owner = 'mimireya';
-       const repo = 'KataWanted-EMS';
+          // ★ここをあなたの情報に「手動で」書き換えます
+          const owner = 'mimireya';
+          const repo = 'KataWanted-EMS';
 
-       // GitHubのAPIからREADMEをHTML形式で取得
-       fetch(`https://github.com{owner}/${repo}/readme`, {
-       headers: { 'Accept': 'application.vnd.github.v3.html' }
-      })
-      .then(res => {
-       if (!res.ok) throw new Error('READMEの取得に失敗しました');
-       return res.text();
-      })
-      .then(html => {
-       // 取得したHTMLをページに埋め込む
-      document.getElementById('readme-html').innerHTML = html;
-      })
-      .catch(err => {
-       document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
-      console.error(err);
-      });
+          // README.mdを自動でHTMLに変換して取得するリクエスト
+          fetch(`https://github.com{owner}/${repo}/readme`, {
+            headers: { 'Accept': 'application.vnd.github.v3.html' }
+          })
+          .then(res => {
+            if (!res.ok) throw new Error('リポジトリ名やユーザー名、またはREADME.mdのファイル名が間違っている可能性があります。');
+            return res.text();
+          })
+          .then(html => {
+            document.getElementById('readme-html').innerHTML = html;
+          })
+          .catch(err => {
+            document.getElementById('readme-html').innerText = `説明書の読み込みに失敗しました。(${err.message})`;
+            console.error(err);
+          });
+        
    </script>
-
 </body>
 </html>        
