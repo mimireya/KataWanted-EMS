@@ -84,6 +84,10 @@
         .markdown-body h3 { font-size: 1.1em; }
         .markdown-body strong { color: #000; }
         .markdown-body li { margin-left: 20px; }
+
+        /* マークダウン変換ツールを最初に確実に読み込む */
+        <script src="https://jsdelivr.net"></script>
+
         
     </style>
 
@@ -406,30 +410,23 @@
         fetchList();
         setInterval(fetchList, 180000);
 
-        // 1. マークダウンを完璧に変換するツール（marked.js）を自動で読み込む
-        const script = document.createElement('script');
-        script.src = 'https://jsdelivr.net';
-        document.head.appendChild(script);
-
-        script.onload = () => {
-          // 2. ツールが読み込み終わったらREADME.mdを取得する
-          fetch('README.md')
-            .then(response => {
-              if (!response.ok) throw new Error('README.mdが見つかりません');
-              return response.text();
-            })
-            .then(text => {
-              // 3. ツールを使って、リンクも折りたたみもすべて完璧にHTMLに変換！
-              const htmlContent = marked.parse(text);
-      
-              // 画面に表示する
-              document.getElementById('readme-html').innerHTML = htmlContent;
-            })
-            .catch(err => {
-              document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
-              console.error(err);
-            });
-        };
+        // キャッシュを回避して、常に最新のREADME.mdを直接テキストとして取得
+        fetch('README.md?t=' + new Date().getTime())
+          .then(response => {
+            if (!response.ok) throw new Error('README.mdが見つかりません');
+            return response.text();
+          })
+          .then(text => {
+            // 事前に読み込んである「marked」ツールを使って、リンクも折りたたみもすべて完璧に変換！
+            const htmlContent = marked.parse(text);
+    
+            // 画面に表示する
+            document.getElementById('readme-html').innerHTML = htmlContent;
+          })
+          .catch(err => {
+            document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
+            console.error(err);
+          });
         
    </script>
 </body>
