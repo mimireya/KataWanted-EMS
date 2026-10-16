@@ -85,6 +85,15 @@
 /* 開閉時の矢印アイコンの動き */
 .readme-accordion[open] .summary-icon {
   transform: rotate(180deg);
+  width: 100%;             /* 💡 画面の横幅いっぱいに自動で合わせる */
+  max-width: 100%;         /* 💡 最大幅の制限を無くして100%にする */
+  box-sizing: border-box;  /* 💡 枠線や余白を含めて画面幅にピタッと収める */
+  margin: 20px 0;          /* 💡 左右の無駄な余白（auto）を無くして左詰めに（※中央寄せが良い場合は 20px auto のままでOK） */
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  background-color: transparent;
 }
 .summary-icon {
   font-size: 10px;
@@ -97,8 +106,9 @@
 .readme-content-wrapper {
   max-height: 400px;
   overflow-y: auto;
-  padding: 20px;
-  background-color: transparent; /* 白い背景を消して透明に */
+  padding: 15px;           /* 💡 左右の余白を少し狭く（20pxから15pxへ）して、スマホ画面でも文字がたくさん入るように調整 */
+  box-sizing: border-box;  /* 💡 スクロールバーが画面からはみ出るのを防ぐ */
+  background-color: transparent;
   border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
 
