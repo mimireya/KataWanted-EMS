@@ -410,23 +410,23 @@
         fetchList();
         setInterval(fetchList, 180000);
 
-        // キャッシュを回避して、常に最新のREADME.mdを直接テキストとして取得
-        fetch('README.md?t=' + new Date().getTime())
-          .then(response => {
-            if (!response.ok) throw new Error('README.mdが見つかりません');
-            return response.text();
-          })
-          .then(text => {
-            // 事前に読み込んである「marked」ツールを使って、リンクも折りたたみもすべて完璧に変換！
-            const htmlContent = marked.parse(text);
+// 通信オプション（cache: 'no-store'）を使って、セキュリティエラーを出さずに、常に最新のREADMEを取得
+fetch('README.md', { cache: 'no-store' })
+  .then(response => {
+    if (!response.ok) throw new Error('README.mdが見つかりません');
+    return response.text();
+  })
+  .then(text => {
+    // 読み込んだMarkdownを、markedツールを使って完璧にHTMLへ変換
+    const htmlContent = marked.parse(text);
     
-            // 画面に表示する
-            document.getElementById('readme-html').innerHTML = htmlContent;
-          })
-          .catch(err => {
-            document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
-            console.error(err);
-          });
+    // 画面に表示する
+    document.getElementById('readme-html').innerHTML = htmlContent;
+  })
+  .catch(err => {
+    document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
+    console.error(err);
+  });
         
    </script>
 </body>
