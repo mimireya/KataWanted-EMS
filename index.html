@@ -54,6 +54,19 @@
         #wanted-list.name-only-mode .wanted-card { padding: 12px; padding-top: 35px; } 
         #wanted-list.name-only-mode .suspect-row { border-bottom: none; padding: 2px 0; }
     </style>
+        <!-- READMEを綺麗に表示するためのスタイル -->
+    <link rel="stylesheet" href="https://cloudflare.com">
+    <style>
+       /* 表示エリアの幅や余白の調整（お好みに合わせて変更してください） */
+       .readme-container {
+         max-width: 800px;
+         margin: 20px auto;
+         padding: 20px;
+         border: 1px solid #ddd;
+         border-radius: 6px;
+         background-color: #fff;
+       }
+    </style>
 </head>
 <body>
 
@@ -78,6 +91,12 @@
     </div>
 
     <div id="wanted-list" data-size="medium"></div>
+
+      <!-- この場所にREADMEの中身が自動で入ります -->
+     <div class="readme-container">
+      <div id="readme-html" class="markdown-body">説明書を読み込み中...</div>
+     </div>
+
 
     <script>
         //  ここにGoogleスプレッドシートのCSV URLを貼り付け
@@ -360,6 +379,28 @@
         updateButtonStyles();
         fetchList();
         setInterval(fetchList, 180000);
-    </script>
+
+      // ★あなたのアカウント名とリポジトリ名に書き換えてください
+       const owner = 'mimireya';
+       const repo = 'KataWanted-EMS';
+
+       // GitHubのAPIからREADMEをHTML形式で取得
+       fetch(`https://github.com{owner}/${repo}/readme`, {
+       headers: { 'Accept': 'application.vnd.github.v3.html' }
+      })
+      .then(res => {
+       if (!res.ok) throw new Error('READMEの取得に失敗しました');
+       return res.text();
+      })
+      .then(html => {
+       // 取得したHTMLをページに埋め込む
+      document.getElementById('readme-html').innerHTML = html;
+      })
+      .catch(err => {
+       document.getElementById('readme-html').innerText = '説明書の読み込みに失敗しました。';
+      console.error(err);
+      });
+   </script>
+
 </body>
 </html>        
